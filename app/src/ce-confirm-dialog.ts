@@ -1,7 +1,10 @@
 import { css, html, LitElement } from "lit";
 import { observer } from "./observer.ts";
+import { counted } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
+
+const MODEL = { one: "model", other: "models" };
 
 /**
  * Modal that asks before a construction is deleted. It names the item, says
@@ -52,13 +55,15 @@ export class CeConfirmDialog extends observer(LitElement) {
   override updated() {
     const dialog = this.renderRoot.querySelector("dialog");
     if (!dialog) return;
-    const wanted = store.pendingDelete !== null;
+    const wanted = store.pendingDelete !== null ||
+      store.pendingLayerDelete !== null;
     if (wanted && !dialog.open) dialog.showModal();
     else if (!wanted && dialog.open) dialog.close();
   }
 
   override render() {
     const target = store.pendingDelete;
+    const layer = store.pendingLayerDelete;
     return html`
       <dialog
         aria-labelledby="title"
@@ -68,7 +73,30 @@ export class CeConfirmDialog extends observer(LitElement) {
           store.cancelDelete();
         }}
       >
-        ${target
+        ${layer
+          ? html`
+            <h2 id="title">Delete Layer</h2>
+            <p id="body">
+              Delete <strong>${layer.name}</strong>${layer.models === 0
+                ? "?"
+                : html`
+                  and the ${counted(layer.models, MODEL)} on it?
+                `}
+            </p>
+            <p class="muted">Undo brings the layer back.</p>
+            <div class="actions">
+              <button autofocus @click=${() => store.cancelDelete()}>
+                Cancel
+              </button>
+              <button
+                class="danger"
+                @click=${() => store.confirmDeleteLayer()}
+              >
+                Delete
+              </button>
+            </div>
+          `
+          : target
           ? html`
             <h2 id="title">Delete Construction</h2>
             <p id="body">

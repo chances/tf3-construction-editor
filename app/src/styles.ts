@@ -24,13 +24,38 @@ export const sharedStyles = css`
     font: inherit;
     padding-block: 0.25rem;
     padding-inline: 0.6rem;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      opacity 160ms ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
   }
   button:hover:not(:disabled) {
     border-color: var(--ce-accent);
   }
   button:disabled {
-    cursor: default;
+    cursor: not-allowed;
     opacity: 0.5;
+  }
+  /* Subtle: blends into the background until hovered or focused. */
+  button.subtle {
+    background: transparent;
+    border-color: transparent;
+    color: var(--ce-muted);
+  }
+  button.subtle:hover:not(:disabled),
+  button.subtle:focus-visible {
+    background: var(--ce-surface-2);
+    border-color: var(--ce-border);
+    color: var(--ce-text);
+  }
+  button.subtle:hover:not(:disabled) {
+    border-color: var(--ce-accent);
   }
   button.primary {
     background: var(--ce-accent);
@@ -48,6 +73,10 @@ export const sharedStyles = css`
     padding-block: 0.2rem;
     padding-inline: 0.4rem;
     min-inline-size: 0;
+  }
+  textarea {
+    min-block-size: 3lh;
+    resize: vertical;
   }
   input:focus-visible,
   button:focus-visible,

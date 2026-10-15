@@ -1,8 +1,13 @@
 import { css, html, LitElement } from "lit";
 import { errorIcon, warningIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
+import { counted, plural } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
+
+const ERROR = { one: "Error", other: "Errors" };
+const WARNING = { one: "Warning", other: "Warnings" };
+const FILE = { one: "file", other: "files" };
 
 /** Footer pane: lint errors and warnings, plus the last export result. */
 export class CeProblems extends observer(LitElement) {
@@ -11,7 +16,7 @@ export class CeProblems extends observer(LitElement) {
     css`
       :host {
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, auto);
         min-block-size: 0;
       }
       /* The title sits at one end and its supplement (the chips, or None) at
@@ -84,26 +89,20 @@ export class CeProblems extends observer(LitElement) {
             ? html`
               <span
                 class="chip error"
-                title=${`${errors} ${errors === 1 ? "Error" : "Errors"}`}
+                title=${counted(errors, ERROR)}
               >${errorIcon(14)}<span class="count">${errors}</span><span
                                 class="visually-hidden"
-                              >${errors === 1
-                                ? "Error"
-                                : "Errors"}</span></span>
+                              >${plural(errors, ERROR)}</span></span>
             `
             : null}
           ${warnings > 0
             ? html`
               <span
                 class="chip warning"
-                title=${`${warnings} ${
-                  warnings === 1 ? "Warning" : "Warnings"
-                }`}
+                title=${counted(warnings, WARNING)}
               >${warningIcon(14)}<span class="count">${warnings}</span><span
                                 class="visually-hidden"
-                              >${warnings === 1
-                                ? "Warning"
-                                : "Warnings"}</span></span>
+                              >${plural(warnings, WARNING)}</span></span>
             `
             : null}
           </p>
@@ -120,7 +119,7 @@ export class CeProblems extends observer(LitElement) {
           : null}
         ${outcome?.ok
           ? html`
-            <p>Wrote ${outcome.written.length} files:</p>
+            <p>Wrote ${counted(outcome.written.length, FILE)}:</p>
             <ul>${outcome.written.map((w) => html`<li>${w}</li>`)}</ul>
           `
           : null}

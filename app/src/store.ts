@@ -65,6 +65,10 @@ export class EditorStore {
   assets: AssetListing[] = [];
   assetTotal = 0;
   assetQuery = "";
+  /** True while the eyedropper waits for a click on a model in the surface. */
+  eyedropper = false;
+  /** The model id the eyedropper picked, highlighted in the Assets browser. */
+  pickedAssetId: string | null = null;
   summaries = new Map<string, MdlSummary>();
   issues: Issue[] = [];
   exportOutcome: ExportOutcome | null = null;
@@ -87,6 +91,9 @@ export class EditorStore {
   };
   /** The construction waiting for the user to confirm its deletion. */
   pendingDelete: { id: string; name: string } | null = null;
+  /** The layer waiting for the user to confirm its deletion. */
+  pendingLayerDelete: { sub: number; name: string; models: number } | null =
+    null;
   /** True once saved state has been restored. Persistence waits for it. */
   ready = false;
   /** What the loading page says the app is doing, such as "Opening Playground". */
@@ -124,6 +131,16 @@ export class EditorStore {
 
   get hasErrors(): boolean {
     return this.issues.some((i) => i.severity === "error");
+  }
+
+  /** True once any layer holds a model. */
+  get hasModels(): boolean {
+    return this.doc?.subconstructions.some((s) => s.models.length > 0) ?? false;
+  }
+
+  /** The eyedropper is armed and the scene has a model to pick. */
+  get eyedropperActive(): boolean {
+    return this.eyedropper && this.hasModels;
   }
 
   get selectedPlacement() {
@@ -545,6 +562,41 @@ export class EditorStore {
 
   cancelDelete() {
     this.pendingDelete = null;
+    this.pendingLayerDelete = null;
+  }
+
+  /** Opens the delete confirmation for a layer. A construction keeps one. */
+  requestDeleteLayer(sub: number) {
+    const layers = this.doc?.subconstructions;
+    if (!layers || layers.length < 2 || !layers[sub]) return;
+    this.pendingLayerDelete = {
+      sub,
+      name: layers[sub].label ?? `Layer ${sub + 1}`,
+      models: layers[sub].models.length,
+    };
+  }
+
+  /** Removes the layer named by `pendingLayerDelete`. Undo restores it. */
+  confirmDeleteLayer() {
+    const target = this.pendingLayerDelete;
+    this.pendingLayerDelete = null;
+    if (!target || !this.doc || this.doc.subconstructions.length < 2) return;
+    const { sub } = target;
+    const wasActive = this.activeSub === sub;
+    const s = this.selection;
+    this.edit((doc) => {
+      doc.subconstructions.splice(sub, 1);
+    }, { label: "Delete layer" });
+    if (s?.sub === sub) this.selection = null;
+    else if (s && s.sub > sub) this.selection = { ...s, sub: s.sub - 1 };
+    if (this.activeSub > sub) this.activeSub -= 1;
+    this.activeSub = Math.min(
+      this.activeSub,
+      this.doc.subconstructions.length - 1,
+    );
+    if (wasActive || this.selection === null) {
+      this.inspectTarget = "construction";
+    }
   }
 
   /** Deletes the construction named by `pendingDelete`, then shows step 3. */
@@ -813,6 +865,16 @@ export class EditorStore {
     } catch (error) {
       this.#fail(error);
     }
+  }
+
+  /**
+   * The eyedropper picked a placed model: highlight its asset. The list is
+   * searched for the id when the current results do not hold it.
+   */
+  async pickAsset(id: string) {
+    this.eyedropper = false;
+    this.pickedAssetId = id;
+    if (!this.assets.some((a) => a.id === id)) await this.searchAssets(id);
   }
 
   async addModel(id: string) {

@@ -104,6 +104,10 @@ export class CeCanvas extends observer(LitElement) {
       svg.panning {
         cursor: grabbing;
       }
+      svg.eyedropper,
+      svg.eyedropper .bbox {
+        cursor: crosshair;
+      }
       .grid {
         stroke: var(--ce-grid);
         stroke-width: 1;
@@ -266,7 +270,7 @@ export class CeCanvas extends observer(LitElement) {
     }`;
     return html`
       <svg
-        class=${this.panning ? "panning" : ""}
+        class=${this.panning ? "panning" : store.eyedropper ? "eyedropper" : ""}
         viewBox=${viewBox}
         @wheel=${this.#wheel}
         @pointerdown=${this.#downBackground}
@@ -335,11 +339,11 @@ export class CeCanvas extends observer(LitElement) {
             }>${a}&deg;</option>`
           )}
         </select></label>
-        <label>Z min <input type="number" .value=${band.min === null
+        <label>Z Min<input type="number" .value=${band.min === null
           ? ""
           : String(band.min)}
           @change=${(e: Event) => (band.min = num(e))} /></label>
-        <label>Z max <input type="number" .value=${band.max === null
+        <label>Z Max<input type="number" .value=${band.max === null
           ? ""
           : String(band.max)}
           @change=${(e: Event) => (band.max = num(e))} /></label>
@@ -484,10 +488,15 @@ export class CeCanvas extends observer(LitElement) {
 
   #downModel(event: PointerEvent, sub: number, model: number) {
     event.stopPropagation();
+    const doc = store.doc!;
+    if (store.eyedropperActive) {
+      store.select({ sub, model });
+      void store.pickAsset(doc.subconstructions[sub].models[model].id);
+      return;
+    }
     this.#capture(event);
     store.activeSub = sub;
     store.select({ sub, model });
-    const doc = store.doc!;
     const placement = doc.subconstructions[sub].models[model];
     const start = decomposeTransf(placement.transf);
     const summary = store.summaries.get(placement.id);

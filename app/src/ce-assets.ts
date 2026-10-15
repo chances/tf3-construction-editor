@@ -2,8 +2,11 @@ import { css, html, LitElement } from "lit";
 import "./ce-error-state.ts";
 import { spinnerIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
+import { counted } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
+
+const MODEL = { one: "model", other: "models" };
 
 /** Left aside: search the model index and add a model to the surface. */
 export class CeAssets extends observer(LitElement) {
@@ -61,6 +64,20 @@ export class CeAssets extends observer(LitElement) {
     `,
   ];
 
+  #scrolledTo: string | null = null;
+
+  /** Scrolls the picked asset into view once, when a pick changes. */
+  override updated() {
+    const id = store.pickedAssetId;
+    if (id === this.#scrolledTo) return;
+    const item = this.renderRoot.querySelector(
+      'button.item[aria-current="true"]',
+    );
+    if (!item) return;
+    this.#scrolledTo = id;
+    item.scrollIntoView({ block: "nearest" });
+  }
+
   override render() {
     const notIndexed = store.installRoot === null && store.assets.length === 0;
     return html`
@@ -113,8 +130,11 @@ export class CeAssets extends observer(LitElement) {
         : html`
           <div class="body">
             <p class="muted">
-              ${store.assets.length} of ${store.assetTotal}
-              models.${store.assets.length > 0
+              ${store.assets.length} of ${counted(
+                store.assetTotal,
+                MODEL,
+              )}.${store
+                  .assets.length > 0
                 ? " Select one to place it."
                 : ""}
             </p>
@@ -125,7 +145,7 @@ export class CeAssets extends observer(LitElement) {
                     <li>
                       <button
                         class="item"
-                        aria-current="false"
+                        aria-current=${String(a.id === store.pickedAssetId)}
                         @click=${() => store.addModel(a.id)}
                       >
                         ${a.id}

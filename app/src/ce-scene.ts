@@ -1,4 +1,6 @@
 import { css, html, LitElement } from "lit";
+import "./ce-toggle-button.ts";
+import { trashIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
@@ -72,8 +74,28 @@ export class CeScene extends observer(LitElement) {
       button.item[aria-current="true"] {
         background: var(--ce-selected);
       }
-      .row > input {
+      .row > ce-toggle-button {
         flex: none;
+      }
+      ce-toggle-button::part(button),
+      button.delete {
+        border-radius: 50%;
+      }
+      button.delete {
+        align-items: center;
+        block-size: 1.5rem;
+        box-sizing: border-box;
+        display: inline-flex;
+        flex: none;
+        inline-size: 1.5rem;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
+      }
+      button.delete:hover:not(:disabled),
+      button.delete:focus-visible {
+        border-color: var(--ce-error);
+        color: var(--ce-error);
       }
       .row button.item {
         flex: 1;
@@ -128,17 +150,6 @@ export class CeScene extends observer(LitElement) {
                 html`
                   <li class="layer">
                     <div class="row">
-                      <input
-                        type="checkbox"
-                        title="Toggle layer visibility"
-                        aria-label=${`${sub.hidden ? "Show" : "Hide"} layer`}
-                        .checked=${!sub.hidden}
-                        @change=${(e: Event) =>
-                          store.setHidden(
-                            si,
-                            !(e.target as HTMLInputElement).checked,
-                          )}
-                      />
                       <button
                         class="item"
                         aria-current=${String(
@@ -151,6 +162,29 @@ export class CeScene extends observer(LitElement) {
                           ? html`<span class="tag" title="Tag ${sub.tag}">${sub.tag}</span>`
                           : null}
                       </button>
+                      <ce-toggle-button
+                        variant="icon subtle"
+                        icon=${sub.hidden ? "eye-closed" : "eye"}
+                        title="Layer Visibility"
+                        label=${`${sub.hidden ? "Show" : "Hide"} the layer ${
+                          sub.label ?? `Layer ${si + 1}`
+                        }`}
+                        .pressed=${!sub.hidden}
+                        @change=${(e: CustomEvent<boolean>) =>
+                          store.setHidden(si, !e.detail)}
+                      ></ce-toggle-button>
+                      <button
+                        type="button"
+                        class="subtle delete"
+                        ?disabled=${doc.subconstructions.length < 2}
+                        title=${doc.subconstructions.length < 2
+                          ? "A construction keeps one layer"
+                          : "Delete Layer"}
+                        aria-label=${`Delete the layer ${
+                          sub.label ?? `Layer ${si + 1}`
+                        } after you confirm`}
+                        @click=${() => store.requestDeleteLayer(si)}
+                      >${trashIcon(12)}</button>
                     </div>
                     <ul>
                                         ${sub.models.map(

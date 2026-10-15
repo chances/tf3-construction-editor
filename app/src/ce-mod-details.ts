@@ -131,13 +131,13 @@ export class CeModDetails extends observer(LitElement) {
             "1",
           )}
           ${selectField(
-            "Severity add",
+            "Severity Add",
             mod.severityAdd ?? "None",
             SEVERITIES,
             (v) => store.editMod((m) => (m.severityAdd = v)),
           )}
           ${selectField(
-            "Severity remove",
+            "Severity Remove",
             mod.severityRemove ?? "Warning",
             SEVERITIES,
             (v) => store.editMod((m) => (m.severityRemove = v)),

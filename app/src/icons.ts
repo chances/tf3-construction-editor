@@ -4,11 +4,14 @@ import {
   ChevronDown,
   ChevronUp,
   CircleAlert,
+  Eye,
+  EyeClosed,
   Folder,
   History,
   type IconNode,
   Image,
   LoaderCircle,
+  Pipette,
   Plus,
   Redo2,
   Trash2,
@@ -65,3 +68,13 @@ export const imageIcon = (size = 16) => lucideIcon(Image, size);
 export const historyIcon = (size = 16) => lucideIcon(History, size);
 export const errorIcon = (size = 16) => lucideIcon(CircleAlert, size);
 export const warningIcon = (size = 16) => lucideIcon(TriangleAlert, size);
+export const eyeIcon = (size = 16) => lucideIcon(Eye, size);
+export const eyeClosedIcon = (size = 16) => lucideIcon(EyeClosed, size);
+export const pipetteIcon = (size = 16) => lucideIcon(Pipette, size);
+
+/** Icons a `ce-toggle-button` can show, by its `icon` attribute. */
+export const toggleIcons = {
+  "eye": eyeIcon,
+  "eye-closed": eyeClosedIcon,
+  "pipette": pipetteIcon,
+} as const;

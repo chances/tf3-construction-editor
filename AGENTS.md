@@ -34,14 +34,26 @@ Run from the repo root.
   entry.
 - Unit tests are sibling `<module>.test.ts` files next to `<module>.ts`.
   Fixtures live in a member's `testdata/` folder.
-- Every heading and every button label uses Title Case, in Markdown and in HTML
-  or component templates.
+- Every heading, every button label, and every field label uses Title Case, in
+  Markdown and in HTML or component templates (`Menu Category`, `Layer Label`,
+  `Name`). Hints, placeholders, and sentences keep sentence case, including a
+  parenthetical hint after a label (`Name (32 max)`, `Tags (comma separated)`).
+- Interface text that holds a count picks its noun with `Intl.PluralRules`
+  (`select(n)` returns a category such as `one` or `other`, mapped to the word)
+  and formats the number with `Intl.NumberFormat`. Never hand-write
+  `n === 1 ? "model" : "models"`, and never write `(s)`. A zero count drops the
+  phrase when the sentence reads better without it.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only
-  buttons carry a short `title` and a different, descriptive `aria-label`
-  (never equal), deletes confirm in the one modal
-  (`ce-confirm-dialog`), and icons come from Lucide through `app/src/icons.ts`.
+  buttons carry a short `title` and a different, descriptive `aria-label` (never
+  equal), deletes confirm in the one modal (`ce-confirm-dialog`), and icons come
+  from Lucide through `app/src/icons.ts`.
+- Button states and variants live in `app/src/styles.ts`: `button.subtle`
+  (transparent at rest, chrome on hover and focus), `cursor: not-allowed` when
+  disabled, and a 160 ms color transition. Textareas resize vertically only with
+  a 3-line minimum. A disabled button's `title` says why. Toggles use
+  `ce-toggle-button` (`variant="icon subtle"`).
 - Number inputs are `ce-spinner` (custom spin arrows, always visible), through
   `numberField` and `clearableNumberField` in `app/src/fields.ts`. A composite
   control draws one focus outline, on its outermost box. A toggle that turns

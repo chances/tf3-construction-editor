@@ -197,7 +197,7 @@ export class CeProperties extends observer(LitElement) {
     if (!sub) return null;
     return html`
       <div class="cols label-tag">
-        ${textField("Layer label", sub.label ?? "", (v) =>
+        ${textField("Layer Label", sub.label ?? "", (v) =>
           store.edit(
             (d) => {
               d.subconstructions[store.activeSub].label = v || undefined;
@@ -205,7 +205,7 @@ export class CeProperties extends observer(LitElement) {
             { label: "Rename layer" },
           ))}
         ${clearableNumberField(
-          "Layer tag",
+          "Layer Tag",
           sub.tag,
           (v) =>
             store.edit(
@@ -216,7 +216,7 @@ export class CeProperties extends observer(LitElement) {
               },
               { label: "Set tag" },
             ),
-          "Clear tag",
+          "Clear Tag",
           1,
         )}
       </div>
@@ -262,7 +262,7 @@ export class CeProperties extends observer(LitElement) {
           (v) => store.patchSelectedPlacement({ scale: v && v > 0 ? v : 1 }),
         )}
       </div>
-      ${textField("Model tag", placement.tag ?? "", (v) => {
+      ${textField("Model Tag", placement.tag ?? "", (v) => {
         const s = store.selection;
         if (!s) return;
         store.edit(
@@ -290,7 +290,7 @@ export class CeProperties extends observer(LitElement) {
         (v) => store.edit((d) => (d.description.description = v)),
       )}
       ${textField(
-        "Content folder",
+        "Content Folder",
         doc.folder,
         (v) => store.edit((d) => (d.folder = v)),
       )}
@@ -302,7 +302,7 @@ export class CeProperties extends observer(LitElement) {
           store.edit((d) => (d.description.icon = e.detail.value || undefined))}
       ></ce-icon-picker>
       <ce-icon-picker
-        label="Preview icon"
+        label="Preview Icon"
         .dir=${store.dir}
         .value=${doc.description.previewIcon ?? ""}
         @change=${(e: CustomEvent<{ value: string }>) =>
@@ -312,13 +312,13 @@ export class CeProperties extends observer(LitElement) {
       ></ce-icon-picker>
       <div class="cols">
         ${groupedSelectField(
-          "Menu category",
+          "Menu Category",
           doc.menuCategory.category,
           menuCategoryGroups(doc.menuCategory.category),
           (v) => store.edit((d) => (d.menuCategory.category = v)),
         )}
         ${numberField(
-          "Menu order",
+          "Menu Order",
           doc.menuCategory.order,
           (v) => store.edit((d) => (d.menuCategory.order = v ?? 0)),
           "1",
@@ -335,8 +335,8 @@ export class CeProperties extends observer(LitElement) {
           .to=${doc.availability.yearTo}
           startLabel="Always"
           foreverLabel="Forever"
-          fromLabel="Year from"
-          toLabel="Year to"
+          fromLabel="Year From"
+          toLabel="Year To"
           @change=${(e: CustomEvent<RangeChange>) =>
             store.edit((d) => {
               d.availability.yearFrom = e.detail.from;
@@ -356,7 +356,7 @@ export class CeProperties extends observer(LitElement) {
                 store.edit((d) => (d.costs.noCostAtAll = checked || undefined));
               }}
             />
-            <span>No costs at all</span>
+            <span>No Costs at All</span>
           </label>
         </div>
         <div class="costs-slot">
