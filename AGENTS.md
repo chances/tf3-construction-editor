@@ -41,6 +41,11 @@ Run from the repo root.
   no nested group boxes, empty panes show a filling placeholder, icon-only
   buttons carry `aria-label` and `title`, deletes confirm in the one modal
   (`ce-confirm-dialog`), and icons come from Lucide through `app/src/icons.ts`.
+- Number inputs are `ce-spinner` (custom spin arrows, always visible), through
+  `numberField` and `clearableNumberField` in `app/src/fields.ts`. A composite
+  control draws one focus outline, on its outermost box. A toggle that turns
+  fields off keeps the box height: the message and the hidden fields share one
+  grid cell.
 - Game files live outside this repo:
   `D:\Steam\steamapps\common\Transport Fever 3`. Never extract archives into the
   install folder.

@@ -135,26 +135,34 @@ export class CeProperties extends observer(LitElement) {
         display: inline-flex;
         gap: 0.3rem;
       }
-      /* Three costs in one row: right-aligned figures, no spinner arrows. */
+      /* Three costs in one row: right-aligned figures. */
       .costs {
         display: grid;
         gap: 0.75rem;
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .costs input[type="number"] {
-        appearance: textfield;
-        box-sizing: border-box;
+      /*
+      * The fields and the "free" line share one grid cell. The fields stay
+      * in the layout, hidden, so the box keeps its height in both states.
+      */
+      .costs-slot {
+        display: grid;
+      }
+      .costs-slot > * {
+        grid-area: 1 / 1;
+      }
+      .costs.free {
+        visibility: hidden;
+      }
+      /* Muted text that stands in for a group box's empty or disabled content. */
+      .placeholder {
+        align-self: center;
+        color: var(--ce-muted);
+        text-align: center;
+      }
+      .costs ce-spinner::part(input) {
         font-variant-numeric: tabular-nums;
-        inline-size: 100%;
         text-align: end;
-      }
-      .costs input[type="number"]::-webkit-inner-spin-button,
-      .costs input[type="number"]::-webkit-outer-spin-button {
-        appearance: none;
-        margin: 0;
-      }
-      .costs input:disabled {
-        opacity: 0.55;
       }
       .cols {
         display: grid;
@@ -209,7 +217,7 @@ export class CeProperties extends observer(LitElement) {
               { label: "Set tag" },
             ),
           "Clear tag",
-          "1",
+          1,
         )}
       </div>
     `;
@@ -351,38 +359,39 @@ export class CeProperties extends observer(LitElement) {
             <span>No costs at all</span>
           </label>
         </div>
+        <div class="costs-slot">
+        <div class=${doc.costs.noCostAtAll ? "costs free" : "costs"}>
+          ${numberField(
+            "Cost",
+            doc.costs.cost,
+            (v) => store.edit((d) => (d.costs.cost = v)),
+            "100",
+            false,
+            0,
+          )}
+          ${numberField(
+            "Maintenance",
+            doc.costs.maintenanceCost,
+            (v) => store.edit((d) => (d.costs.maintenanceCost = v)),
+            "100",
+            false,
+            0,
+          )}
+          ${numberField(
+            "Bulldoze",
+            doc.costs.bulldozeCost,
+            (v) => store.edit((d) => (d.costs.bulldozeCost = v)),
+            "100",
+            false,
+            0,
+          )}
+        </div>
         ${doc.costs.noCostAtAll
           ? html`
-            <p class="muted">This construction costs nothing.</p>
+            <p class="placeholder">This construction costs nothing.</p>
           `
-          : html`
-            <div class="costs">
-              ${numberField(
-                "Cost",
-                doc.costs.cost,
-                (v) => store.edit((d) => (d.costs.cost = v)),
-                "100",
-                doc.costs.noCostAtAll ?? false,
-                0,
-              )}
-              ${numberField(
-                "Maintenance",
-                doc.costs.maintenanceCost,
-                (v) => store.edit((d) => (d.costs.maintenanceCost = v)),
-                "100",
-                doc.costs.noCostAtAll ?? false,
-                0,
-              )}
-              ${numberField(
-                "Bulldoze",
-                doc.costs.bulldozeCost,
-                (v) => store.edit((d) => (d.costs.bulldozeCost = v)),
-                "100",
-                doc.costs.noCostAtAll ?? false,
-                0,
-              )}
-            </div>
-          `}
+          : null}
+        </div>
       </fieldset>
     `;
   }

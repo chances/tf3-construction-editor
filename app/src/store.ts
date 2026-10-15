@@ -175,8 +175,7 @@ export class EditorStore {
       this.loadingTitle = "Loading Mods";
     });
     try {
-      await this.#task(
-        "Reading the server configuration and listing mods from disk",
+      await this.#task("Listing your mods from disk",
         () => this.init(),
       );
       if (saved?.modDir) {

@@ -73,18 +73,11 @@ export const sharedStyles = css`
     color: inherit;
     display: flex;
     font-size: inherit;
+    min-inline-size: 0;
   }
   .input-suffix:focus-within {
     outline: 2px solid var(--ce-accent);
     outline-offset: 1px;
-  }
-  .input-suffix input {
-    background: transparent;
-    border: 0;
-    field-sizing: content;
-    flex: none;
-    min-inline-size: 3ch;
-    outline: 0;
   }
   .input-suffix button.icon {
     align-items: center;
@@ -97,6 +90,11 @@ export const sharedStyles = css`
   }
   .input-suffix button.icon:hover:not(:disabled) {
     color: inherit;
+  }
+  .input-suffix button.icon:focus-visible {
+    background: var(--ce-surface-2);
+    color: inherit;
+    outline: 0;
   }
   .row {
     display: flex;

@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from "lit";
-import { ifDefined } from "lit/directives/if-defined.js";
+import "./ce-spinner.ts";
+import type { SpinnerChange } from "./ce-spinner.ts";
 import { xIcon } from "./icons.ts";
 
 function inputValue(event: Event): string {
@@ -37,23 +38,17 @@ export function numberField(
   disabled = false,
   min?: number,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><input
-      type="number"
-      step=${step}
-      min=${ifDefined(min)}
-      ?disabled=${disabled}
-      .value=${value === undefined ? "" : String(value)}
-      @change=${numberChange(onChange)}
-    /></label>`;
-}
-
-function numberChange(onChange: (value: number | undefined) => void) {
-  return (e: Event) => {
-    const raw = inputValue(e).trim();
-    if (raw === "") return onChange(undefined);
-    const n = Number(raw);
-    if (Number.isFinite(n)) onChange(n);
-  };
+  return html`<label class="field"><span>${label}</span><span
+      class="input-suffix"
+    ><ce-spinner
+        fill
+        .label=${label}
+        .step=${step === "any" ? null : Number(step)}
+        .min=${min}
+        .value=${value}
+        ?disabled=${disabled}
+        @change=${(e: CustomEvent<SpinnerChange>) => onChange(e.detail.value)}
+      ></ce-spinner></span></label>`;
 }
 
 /**
@@ -65,16 +60,16 @@ export function clearableNumberField(
   value: number | undefined,
   onChange: (value: number | undefined) => void,
   clearLabel: string,
-  step = "any",
+  step = 1,
 ): TemplateResult {
   return html`<label class="field"><span>${label}</span><span
       class="input-suffix"
-    ><input
-        type="number"
-        step=${step}
-        .value=${value === undefined ? "" : String(value)}
-        @change=${numberChange(onChange)}
-      />${
+    ><ce-spinner
+        .label=${label}
+        .step=${step}
+        .value=${value}
+        @change=${(e: CustomEvent<SpinnerChange>) => onChange(e.detail.value)}
+      ></ce-spinner>${
     value === undefined ? null : html`
       <button
         type="button"
