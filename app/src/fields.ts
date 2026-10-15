@@ -1,5 +1,6 @@
 import { html, type TemplateResult } from "lit";
 import { ifDefined } from "lit/directives/if-defined.js";
+import { xIcon } from "./icons.ts";
 
 function inputValue(event: Event): string {
   return (event.target as HTMLInputElement).value;
@@ -42,13 +43,51 @@ export function numberField(
       min=${ifDefined(min)}
       ?disabled=${disabled}
       .value=${value === undefined ? "" : String(value)}
-      @change=${(e: Event) => {
+      @change=${numberChange(onChange)}
+    /></label>`;
+}
+
+function numberChange(onChange: (value: number | undefined) => void) {
+  return (e: Event) => {
     const raw = inputValue(e).trim();
     if (raw === "") return onChange(undefined);
     const n = Number(raw);
     if (Number.isFinite(n)) onChange(n);
-  }}
-    /></label>`;
+  };
+}
+
+/**
+ * A number field with an icon button after the input that empties it. The
+ * button is absent while the field is empty.
+ */
+export function clearableNumberField(
+  label: string,
+  value: number | undefined,
+  onChange: (value: number | undefined) => void,
+  clearLabel: string,
+  step = "any",
+): TemplateResult {
+  return html`<label class="field"><span>${label}</span><span
+      class="input-suffix"
+    ><input
+        type="number"
+        step=${step}
+        .value=${value === undefined ? "" : String(value)}
+        @change=${numberChange(onChange)}
+      />${
+    value === undefined ? null : html`
+      <button
+        type="button"
+        class="icon"
+        aria-label=${clearLabel}
+        title=${clearLabel}
+        @click=${(e: Event) => {
+          e.preventDefault();
+          onChange(undefined);
+        }}
+      >${xIcon(14)}</button>
+    `
+  }</span></label>`;
 }
 
 export function checkboxField(

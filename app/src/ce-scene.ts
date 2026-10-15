@@ -47,6 +47,9 @@ export class CeScene extends observer(LitElement) {
       button.item[aria-current="true"] {
         background: var(--ce-selected);
       }
+      .row > input {
+        flex: none;
+      }
       .row button.item {
         flex: 1;
         min-inline-size: 0;
@@ -54,6 +57,28 @@ export class CeScene extends observer(LitElement) {
       .root > .row button.item,
       .layer > .row button.item {
         font-weight: 600;
+      }
+      .layer > .row button.item {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: space-between;
+      }
+      .layer .name {
+        min-inline-size: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .layer .tag {
+        background: var(--ce-surface-2);
+        border: 1px solid var(--ce-border);
+        border-radius: 999px;
+        color: var(--ce-muted);
+        flex: none;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 400;
+        padding-inline: 0.5rem;
       }
       .add {
         margin-block-start: 0.5rem;
@@ -91,19 +116,20 @@ export class CeScene extends observer(LitElement) {
                             si,
                             !(e.target as HTMLInputElement).checked,
                           )}
-                          @click=${() => store.selectLayer(si)}
-                        >
-                                          ${sub.label ??
-                                            `Layer ${
-                                              si + 1
-                                            }`}${sub.tag !== undefined
-                                            ? html`
-                                              <span class="muted">tag ${sub
-                                                .tag}</span>
-                                            `
-                                            : null}
-                                        </button>
-                      </div>
+                      />
+                      <button
+                        class="item"
+                        aria-current=${String(
+                          inspect === "layer" && store.activeSub === si,
+                        )}
+                        @click=${() => store.selectLayer(si)}
+                      >
+                        <span class="name">${sub.label ??
+                          `Layer ${si + 1}`}</span>${sub.tag !== undefined
+                          ? html`<span class="tag" title="Tag ${sub.tag}">${sub.tag}</span>`
+                          : null}
+                      </button>
+                    </div>
                     <ul>
                                         ${sub.models.map(
                                           (m, mi) =>

@@ -64,6 +64,40 @@ export const sharedStyles = css`
     color: var(--ce-muted);
     font-size: 11px;
   }
+  /* An input and its icon button share one border, drawn by the wrapper. */
+  .field > .input-suffix {
+    align-items: center;
+    background: var(--ce-surface);
+    border: 1px solid var(--ce-border);
+    border-radius: 4px;
+    color: inherit;
+    display: flex;
+    font-size: inherit;
+  }
+  .input-suffix:focus-within {
+    outline: 2px solid var(--ce-accent);
+    outline-offset: 1px;
+  }
+  .input-suffix input {
+    background: transparent;
+    border: 0;
+    field-sizing: content;
+    flex: none;
+    min-inline-size: 3ch;
+    outline: 0;
+  }
+  .input-suffix button.icon {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: var(--ce-muted);
+    display: inline-flex;
+    padding-block: 0.2rem;
+    padding-inline: 0.4rem;
+  }
+  .input-suffix button.icon:hover:not(:disabled) {
+    color: inherit;
+  }
   .row {
     display: flex;
     gap: 0.5rem;

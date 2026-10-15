@@ -7,6 +7,7 @@ import {
 } from "@cedit/schema";
 import {
   checkboxField,
+  clearableNumberField,
   groupedSelectField,
   numberField,
   textAreaField,
@@ -160,6 +161,10 @@ export class CeProperties extends observer(LitElement) {
         gap: 0.75rem;
         grid-template-columns: 1fr 1fr;
       }
+      /* The label takes all free width, the tag field only what it needs. */
+      .cols.label-tag {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
       .id {
         overflow-wrap: anywhere;
       }
@@ -183,7 +188,7 @@ export class CeProperties extends observer(LitElement) {
     const sub = store.doc?.subconstructions[store.activeSub];
     if (!sub) return null;
     return html`
-      <div class="cols">
+      <div class="cols label-tag">
         ${textField("Layer label", sub.label ?? "", (v) =>
           store.edit(
             (d) => {
@@ -191,7 +196,7 @@ export class CeProperties extends observer(LitElement) {
             },
             { label: "Rename layer" },
           ))}
-        ${numberField(
+        ${clearableNumberField(
           "Layer tag",
           sub.tag,
           (v) =>
@@ -203,6 +208,7 @@ export class CeProperties extends observer(LitElement) {
               },
               { label: "Set tag" },
             ),
+          "Clear tag",
           "1",
         )}
       </div>

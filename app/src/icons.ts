@@ -13,6 +13,7 @@ import {
   Trash2,
   TriangleAlert,
   Undo2,
+  X,
 } from "lucide";
 
 function attributeText(
@@ -54,6 +55,7 @@ export const trashIcon = (size = 16) => lucideIcon(Trash2, size);
 export const plusIcon = (size = 16) => lucideIcon(Plus, size);
 export const spinnerIcon = (size = 16) => lucideIcon(LoaderCircle, size);
 export const chevronDownIcon = (size = 16) => lucideIcon(ChevronDown, size);
+export const xIcon = (size = 16) => lucideIcon(X, size);
 export const undoIcon = (size = 16) => lucideIcon(Undo2, size);
 export const redoIcon = (size = 16) => lucideIcon(Redo2, size);
 export const folderIcon = (size = 16) => lucideIcon(Folder, size);
