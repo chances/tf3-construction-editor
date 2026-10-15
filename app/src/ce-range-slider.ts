@@ -302,7 +302,9 @@ export class CeRangeSlider extends LitElement {
       <span class="year-edit has-prefix">
         <button
           class="prefix"
-          aria-label=${openLabel}
+          aria-label=${`Set ${
+            side === "from" ? this.fromLabel : this.toLabel
+          } to ${openLabel}`}
           title=${openLabel}
           @mousedown=${(e: Event) => e.preventDefault()}
           @click=${() => {

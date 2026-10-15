@@ -42,6 +42,12 @@ export class CeErrorState extends LitElement {
       .text ::slotted(p) {
         margin: 0;
       }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+      }
     `,
   ];
 
@@ -57,6 +63,9 @@ export class CeErrorState extends LitElement {
       <span class="icon" aria-hidden="true">${errorIcon(40)}</span>
       <h2>${this.heading}</h2>
       <div class="text"><slot></slot></div>
+      ${this.querySelector(":scope > [slot='actions']")
+        ? html`<div class="actions"><slot name="actions"></slot></div>`
+        : null}
     `;
   }
 }

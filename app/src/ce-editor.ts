@@ -105,7 +105,9 @@ export class CeEditor extends observer(LitElement) {
         <button
           class="icon-button"
           ?disabled=${!store.canUndo}
-          aria-label=${undoLabel}
+          aria-label=${store.undoLabel
+            ? `Undo the last change, ${store.undoLabel}`
+            : "Undo the last change"}
           title=${undoLabel}
           @click=${() => store.undo()}
         >
@@ -114,7 +116,9 @@ export class CeEditor extends observer(LitElement) {
         <button
           class="icon-button"
           ?disabled=${!store.canRedo}
-          aria-label=${redoLabel}
+          aria-label=${store.redoLabel
+            ? `Redo the change you undid, ${store.redoLabel}`
+            : "Redo the change you undid"}
           title=${redoLabel}
           @click=${() => store.redo()}
         >
@@ -128,7 +132,9 @@ export class CeEditor extends observer(LitElement) {
         <button
           class="icon-button danger"
           ?disabled=${!store.doc}
-          aria-label=${deleteLabel}
+          aria-label=${`Delete the open construction ${
+            store.doc?.description.name ?? ""
+          } after you confirm`}
           title=${deleteLabel}
           @click=${() => store.doc && store.requestDelete(store.doc.id)}
         >

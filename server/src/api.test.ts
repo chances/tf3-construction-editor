@@ -89,6 +89,54 @@ Deno.test("api: opening the config creates an empty file once and opens it", asy
   });
 });
 
+Deno.test("api: choosing a folder validates, saves, and applies it live", async () => {
+  await withTempDir(async (dir) => {
+    const cfg = config(dir);
+    const next = join(dir, "other_mods");
+    await Deno.mkdir(next);
+    let answer: string | null = next;
+    const asked: string[] = [];
+    const handler = createHandler(
+      cfg,
+      () => Promise.resolve(),
+      ({ title }) => {
+        asked.push(title);
+        return Promise.resolve(answer);
+      },
+    );
+
+    const bad = await call(handler, "POST", "/api/config/choose", {
+      setting: "port",
+    });
+    assertEquals(bad.status, 400);
+
+    const ok = await call(handler, "POST", "/api/config/choose", {
+      setting: "modsRoot",
+    });
+    assertEquals(ok.status, 200);
+    assertEquals(ok.body, { installRoot: null, modsRoot: next });
+    assertEquals(cfg.modsRoot, next);
+    assertEquals(JSON.parse(await Deno.readTextFile(cfg.configFile)), {
+      modsRoot: next,
+    });
+
+    // The install folder needs base/content, so a plain folder is refused.
+    const refused = await call(handler, "POST", "/api/config/choose", {
+      setting: "installRoot",
+    });
+    assertEquals(refused.status, 400);
+    assertEquals(cfg.installRoot, null);
+
+    answer = null;
+    const cancelled = await call(handler, "POST", "/api/config/choose", {
+      setting: "modsRoot",
+    });
+    assertEquals(cancelled.body, { cancelled: true });
+    assertEquals(cfg.modsRoot, next);
+    assertEquals(asked.length, 3);
+  });
+});
+
 async function modWithImages(modsRoot: string) {
   const handler = createHandler(config(modsRoot));
   await call(handler, "POST", "/api/mods", { modId: "demo_mod", name: "Demo" });

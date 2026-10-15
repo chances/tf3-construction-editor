@@ -43,6 +43,8 @@ const SEARCH_DELAY_MS = 200;
  */
 const SPINNER_MIN_MS = 500;
 
+const INDEXING_MESSAGE = "Indexing base game and mod models…";
+
 /** Wizard steps, then the editor page. */
 export type View = "mods" | "details" | "constructions" | "editor";
 
@@ -68,6 +70,8 @@ export class EditorStore {
   exportOutcome: ExportOutcome | null = null;
   message = "";
   busy = false;
+  /** The setting whose folder dialog is open, or null. */
+  choosingFolder: "installRoot" | "modsRoot" | null = null;
 
   snap: SnapSettings = defaultSnap();
   zBand: { min: number | null; max: number | null } = { min: null, max: null };
@@ -143,6 +147,98 @@ export class EditorStore {
     }
   }
 
+  /**
+   * Opens the server's folder dialog for the install folder or the mods
+   * folder, then refreshes whatever depends on the new folder. A new mods
+   * folder closes the open mod and returns to Choose a Mod.
+   */
+  async chooseFolder(setting: "installRoot" | "modsRoot") {
+    if (this.choosingFolder) return;
+    const name = setting === "installRoot" ? "install folder" : "mods folder";
+    this.choosingFolder = setting;
+    this.message = "";
+    try {
+      if (setting === "modsRoot" && this.loaded) {
+        // Saves go to the old folder, so write them before the folder changes.
+        await this.flushSave();
+        if (this.pendingMod) {
+          clearTimeout(this.#modSaveTimer);
+          await this.#saveMod();
+        }
+      }
+      const result = await api.chooseFolder(setting);
+      if ("cancelled" in result) return;
+      runInAction(() => {
+        this.choosingFolder = null;
+      });
+      await this.#applyConfig(result);
+    } catch (error) {
+      this.#fail(error, `Could not change the ${name}.`);
+    } finally {
+      runInAction(() => {
+        this.choosingFolder = null;
+      });
+    }
+  }
+
+  /**
+   * Takes the folders the server now uses and refreshes what depends on them.
+   * A new mods folder closes the open mod and returns to Choose a Mod. A new
+   * install folder re-indexes the models. Folders that did not change do
+   * nothing, so a folder dialog and the event stream can both report one
+   * change.
+   */
+  async #applyConfig(next: { installRoot: string | null; modsRoot: string }) {
+    const modsChanged = next.modsRoot !== this.modsRoot;
+    const installChanged = next.installRoot !== this.installRoot;
+    if (!modsChanged && !installChanged) return;
+    runInAction(() => {
+      this.modsRoot = next.modsRoot;
+      this.installRoot = next.installRoot;
+    });
+    if (modsChanged) {
+      await this.#pageLoad("Loading Mods", "mods", async () => {
+        runInAction(() => {
+          this.loaded = null;
+          this.doc = null;
+          this.selection = null;
+          this.pendingDelete = null;
+          this.issues = [];
+          this.exportOutcome = null;
+          this.view = "mods";
+        });
+        await this.#task("Listing your mods from disk", () => this.init());
+      });
+    } else if (this.loaded) {
+      await this.#pageLoad("Indexing the Base Game", this.view, async () => {
+        await this.#task(
+          INDEXING_MESSAGE,
+          () => this.searchAssets(this.assetQuery),
+          "The first run can take a minute.",
+        );
+      });
+    }
+  }
+
+  #events: EventSource | undefined;
+
+  /**
+   * Listens for changes to the server's configuration, such as an edit to
+   * `cedit.config.json`. The browser reconnects by itself after a drop.
+   */
+  connectConfigEvents() {
+    if (this.#events || typeof EventSource === "undefined") return;
+    const events = new EventSource("/api/events");
+    events.addEventListener("config", (event) => {
+      try {
+        void this.#applyConfig(JSON.parse((event as MessageEvent).data));
+      } catch (error) {
+        this.#fail(error, "Could not read a configuration change.");
+      }
+    });
+    this.#events = events;
+  }
+
   /** Everything worth keeping across a page reload. See `persist.ts`. */
   get persistable(): PersistedState {
     return {
@@ -182,6 +278,7 @@ export class EditorStore {
         });
       }
       await this.restore(saved);
+      this.connectConfigEvents();
     } finally {
       // The first loading state is on screen from the first paint, so hold it
       // for the minimum duration to keep a fast start from flickering.
@@ -384,7 +481,7 @@ export class EditorStore {
           this.view = "details";
         });
         await this.#task(
-          "Indexing models from the base game and this mod.",
+          INDEXING_MESSAGE,
           () => this.searchAssets(""),
           "The first run can take a minute.",
         );

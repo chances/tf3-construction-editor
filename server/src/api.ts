@@ -6,7 +6,19 @@ import {
 } from "@cedit/schema";
 import { type AssetEntry, indexBaseGame } from "./assets.ts";
 import type { ServerConfig } from "./config.ts";
+import {
+  type ConfigSnapshot,
+  ConfigWatcher,
+  snapshotOf,
+} from "./config-watch.ts";
 import { LuaParseError } from "./luatab.ts";
+import {
+  type FolderPicker,
+  isFolderSetting,
+  mergeConfig,
+  pickFolder,
+  validateFolder,
+} from "./folder-dialog.ts";
 import { ImageFormatError, UnsupportedImageError } from "./image/types.ts";
 import { clampThumbnailSize, makeThumbnail } from "./image/thumbnail.ts";
 import { buildImageIndex, type ImageEntry, indexBaseImages } from "./images.ts";
@@ -61,6 +73,8 @@ function errorResponse(error: unknown): Response {
 const ROUTES: { method: string; pattern: URLPattern; name: string }[] = [
   ["GET", "/api/config", "config"],
   ["POST", "/api/config/open", "openConfig"],
+  ["POST", "/api/config/choose", "chooseFolder"],
+  ["GET", "/api/events", "events"],
   ["GET", "/api/mods", "listMods"],
   ["POST", "/api/mods", "createMod"],
   ["GET", "/api/mods/:dir", "loadMod"],
@@ -91,6 +105,51 @@ function hashText(text: string): string {
   return h.toString(16);
 }
 
+const KEEPALIVE_MS = 25_000;
+
+/**
+ * A server-sent event stream. It sends the current folders when it opens, then
+ * a `config` event each time the config file changes a folder.
+ */
+function eventStream(
+  req: Request,
+  config: ServerConfig,
+  watcher: ConfigWatcher,
+): Response {
+  const encoder = new TextEncoder();
+  let stop = () => {};
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const send = (event: string, data: ConfigSnapshot) =>
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+        );
+      send("config", snapshotOf(config));
+      const unsubscribe = watcher.subscribe((snapshot) =>
+        send("config", snapshot)
+      );
+      const timer = setInterval(
+        () => controller.enqueue(encoder.encode(": keepalive\n\n")),
+        KEEPALIVE_MS,
+      );
+      stop = () => {
+        clearInterval(timer);
+        unsubscribe();
+      };
+      req.signal.addEventListener("abort", stop);
+    },
+    cancel() {
+      stop();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+    },
+  });
+}
+
 /** Creates the config file with `{}` when it is missing. */
 async function ensureConfigFile(path: string): Promise<boolean> {
   try {
@@ -105,6 +164,7 @@ async function ensureConfigFile(path: string): Promise<boolean> {
 export function createHandler(
   config: ServerConfig,
   open: (path: string) => Promise<void> = openInDefaultApp,
+  pick: FolderPicker = pickFolder,
 ) {
   let baseEntries: Promise<AssetEntry[]> | undefined;
   const base = () =>
@@ -121,6 +181,12 @@ export function createHandler(
   /** Encoded thumbnails by archive, entry, and size. Oldest leaves first. */
   const thumbnails = new Map<string, Uint8Array>();
   const THUMBNAIL_CACHE = 512;
+
+  /** Applies edits to `cedit.config.json` while the server runs. */
+  const watcher = new ConfigWatcher(config, () => {
+    baseEntries = undefined;
+    baseImages = undefined;
+  });
 
   async function imageIndexFor(dir: string) {
     const loaded = await loadMod(config.modsRoot, dir);
@@ -163,6 +229,44 @@ export function createHandler(
           await open(config.configFile);
           return json({ path: config.configFile, created });
         }
+        case "chooseFolder": {
+          const body = await req.json().catch(() => ({}));
+          const setting = body?.setting;
+          if (!isFolderSetting(setting)) {
+            throw new UserError(
+              'The setting must be "installRoot" or "modsRoot".',
+            );
+          }
+          const picked = await pick({
+            title: setting === "installRoot"
+              ? "Choose the Transport Fever 3 Folder"
+              : "Choose the Mods Folder",
+            start: config[setting] ?? undefined,
+          });
+          if (picked === null) return json({ cancelled: true });
+          await validateFolder(setting, picked);
+          let text = "";
+          try {
+            text = await Deno.readTextFile(config.configFile);
+          } catch (error) {
+            if (!(error instanceof Deno.errors.NotFound)) throw error;
+          }
+          await Deno.writeTextFile(
+            config.configFile,
+            mergeConfig(text, setting, picked),
+          );
+          config[setting] = picked;
+          if (setting === "installRoot") {
+            baseEntries = undefined;
+            baseImages = undefined;
+          }
+          return json({
+            installRoot: config.installRoot,
+            modsRoot: config.modsRoot,
+          });
+        }
+        case "events":
+          return eventStream(req, config, watcher);
         case "listMods":
           return json(await listMods(config.modsRoot));
         case "createMod": {

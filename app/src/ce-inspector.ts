@@ -64,7 +64,7 @@ export class CeInspector extends observer(LitElement) {
           <button
             type="button"
             ?disabled=${!store.doc}
-            aria-label="Add Subconstruction"
+            aria-label="Add a new subconstruction layer to the scene"
             title="Add Subconstruction"
             @click=${() => store.addSubconstruction()}
           >

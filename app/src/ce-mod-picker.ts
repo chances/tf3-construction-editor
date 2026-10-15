@@ -1,7 +1,7 @@
 import { css, html, LitElement } from "lit";
 import { isValidModId, titleCaseId } from "@cedit/schema";
 import "./ce-empty-state.ts";
-import { plusIcon } from "./icons.ts";
+import { folderIcon, plusIcon, spinnerIcon } from "./icons.ts";
 import { modsIllustration } from "./illustrations.ts";
 import { observer } from "./observer.ts";
 import { store } from "./state.ts";
@@ -24,6 +24,42 @@ export class CeModPicker extends observer(LitElement) {
         display: flex;
         gap: 0.5rem;
         margin-block-start: 1rem;
+      }
+      div.folder {
+        align-items: center;
+        color: var(--ce-muted);
+        display: flex;
+        font-size: 13px;
+        font-weight: 600;
+        gap: 0.5rem;
+        margin-block: 0;
+      }
+      div.folder .path {
+        min-inline-size: 0;
+        overflow-wrap: anywhere;
+      }
+      button.icon-button {
+        align-items: center;
+        aspect-ratio: 1;
+        block-size: 1.7rem;
+        display: inline-flex;
+        flex: none;
+        justify-content: center;
+        padding: 0;
+      }
+      .spin {
+        animation: spin 0.9s linear infinite;
+        display: inline-grid;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spin {
+          animation-duration: 3s;
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
     `,
   ];
@@ -52,7 +88,27 @@ export class CeModPicker extends observer(LitElement) {
     const hasMods = store.mods.length > 0;
     const showForm = this.creating || !hasMods;
     return html`
-      <h2>Choose a Mod</h2>
+      <hgroup>
+        <h2>Choose a Mod</h2>
+        <div class="folder">
+          <button
+            type="button"
+            class="icon-button"
+            aria-label="Choose a folder that contains your mods"
+            title="Change Mods Folder"
+            ?disabled=${store.choosingFolder !== null}
+            @click=${() => store.chooseFolder("modsRoot")}
+          >
+            ${store.choosingFolder === "modsRoot"
+              ? html`
+                <span class="spin" aria-hidden="true"
+                >${spinnerIcon(16)}</span>
+              `
+              : folderIcon(16)}
+          </button>
+          <span class="path">${store.modsRoot || "loading"}</span>
+        </div>
+      </hgroup>
       <p class="muted">
         ${!hasMods || showForm
           ? "Create the mod that will contain constructions."
@@ -95,7 +151,6 @@ export class CeModPicker extends observer(LitElement) {
           ></ce-empty-state>
         `}
       ${showForm ? this.#form(hasMods) : null}
-      <p class="muted">Mods folder: ${store.modsRoot || "loading"}</p>
       ${store.message ? html`<p class="error">${store.message}</p>` : null}
     `;
   }

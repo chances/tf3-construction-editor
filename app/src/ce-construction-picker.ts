@@ -98,7 +98,7 @@ export class CeConstructionPicker extends observer(LitElement) {
                     </button>
                     <button
                       class="card-delete"
-                      aria-label=${`Delete ${c.name}`}
+                      aria-label=${`Delete the construction ${c.name} after you confirm`}
                       title=${`Delete ${c.name}`}
                       @click=${() => store.requestDelete(c.id)}
                     >${trashIcon(14)}</button>

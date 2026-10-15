@@ -74,7 +74,7 @@ export function clearableNumberField(
       <button
         type="button"
         class="icon"
-        aria-label=${clearLabel}
+        aria-label=${`${clearLabel}: empties the ${label} field`}
         title=${clearLabel}
         @click=${(e: Event) => {
           e.preventDefault();

@@ -70,7 +70,10 @@ Deno.test("spinner: the step buttons are labelled and titled with the field", as
       "Decrease Layer tag",
     ]] as const
   ) {
-    assertEquals(button(m, which).getAttribute("aria-label"), text);
+    assertEquals(
+      button(m, which).getAttribute("aria-label"),
+      `${text} by 1`,
+    );
     assertEquals(button(m, which).getAttribute("title"), text);
   }
 });

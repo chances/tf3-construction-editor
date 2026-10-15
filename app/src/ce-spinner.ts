@@ -189,7 +189,7 @@ export class CeSpinner extends LitElement {
         <button
           type="button"
           class="up"
-          aria-label=${`Increase ${this.label}`}
+          aria-label=${`Increase ${this.label} by ${this.step ?? 1}`}
           title=${`Increase ${this.label}`}
           ?disabled=${atMax || this.disabled}
           @click=${() => this.#bump(1)}
@@ -197,7 +197,7 @@ export class CeSpinner extends LitElement {
         <button
           type="button"
           class="down"
-          aria-label=${`Decrease ${this.label}`}
+          aria-label=${`Decrease ${this.label} by ${this.step ?? 1}`}
           title=${`Decrease ${this.label}`}
           ?disabled=${atMin || this.disabled}
           @click=${() => this.#bump(-1)}

@@ -1,5 +1,6 @@
 import { css, html, LitElement } from "lit";
 import "./ce-error-state.ts";
+import { spinnerIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
@@ -38,6 +39,25 @@ export class CeAssets extends observer(LitElement) {
         white-space: normal;
         word-break: break-all;
       }
+      .choose {
+        align-items: center;
+        display: inline-flex;
+        gap: 0.4rem;
+      }
+      .spin {
+        animation: spin 0.9s linear infinite;
+        display: inline-grid;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spin {
+          animation-duration: 3s;
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     `,
   ];
 
@@ -70,6 +90,24 @@ export class CeAssets extends observer(LitElement) {
             >
             to the Transport Fever 3 folder, then restart the server with
             <code>deno task dev</code>.
+            ${store.message
+              ? html`<p class="error">${store.message}</p>`
+              : null}
+            <button
+              slot="actions"
+              class="primary choose"
+              ?disabled=${store.choosingFolder !== null}
+              @click=${() => store.chooseFolder("installRoot")}
+            >
+              ${store.choosingFolder === "installRoot"
+                ? html`<span class="spin" aria-hidden="true">${
+                  spinnerIcon(
+                    16,
+                  )
+                }</span>`
+                : null}
+              Select Install...
+            </button>
           </ce-error-state>
         `
         : html`

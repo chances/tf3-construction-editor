@@ -74,6 +74,11 @@ export const api = {
     call<{ installRoot: string | null; modsRoot: string }>("GET", "/config"),
   openConfig: () =>
     call<{ path: string; created: boolean }>("POST", "/config/open"),
+  chooseFolder: (setting: "installRoot" | "modsRoot") =>
+    call<
+      | { cancelled: true }
+      | { installRoot: string | null; modsRoot: string }
+    >("POST", "/config/choose", { setting }),
   listMods: () => call<ModListing[]>("GET", "/mods"),
   createMod: (modId: string, name: string) =>
     call<ModListing>("POST", "/mods", { modId, name }),

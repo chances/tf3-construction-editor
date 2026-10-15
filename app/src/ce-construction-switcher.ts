@@ -281,7 +281,7 @@ export class CeConstructionSwitcher extends observer(LitElement) {
                         type="button"
                         class="row-delete"
                         tabindex="-1"
-                        aria-label=${`Delete ${o.name}`}
+                        aria-label=${`Delete the construction ${o.name} after you confirm`}
                         title=${`Delete ${o.name}`}
                         @pointerdown=${(e: Event) => e.stopPropagation()}
                         @click=${(e: Event) => {

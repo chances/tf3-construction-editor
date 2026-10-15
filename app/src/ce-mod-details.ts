@@ -85,7 +85,7 @@ export class CeModDetails extends observer(LitElement) {
       <button
         type="button"
         class="icon-button"
-        aria-label=${label}
+        aria-label=${`${label}. Removes it from this mod.`}
         title=${label}
         @click=${onClick}
       >${trashIcon()}</button>

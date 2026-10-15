@@ -146,7 +146,7 @@ Deno.test("range slider: the Always box opens as 0 and has the year bounds", asy
   const prefix = m.root.querySelector<HTMLButtonElement>(
     ".year-edit button.prefix",
   )!;
-  assertEquals(prefix.getAttribute("aria-label"), "Always");
+  assert(prefix.getAttribute("aria-label")!.endsWith(" to Always"));
   assertEquals(prefix.getAttribute("title"), "Always");
 });
 
@@ -201,7 +201,7 @@ Deno.test("range slider: the Forever box is empty and has the clock button", asy
     ".year-edit button.prefix",
   )!;
   assert(prefix, "the prefix button is present");
-  assertEquals(prefix.getAttribute("aria-label"), "Forever");
+  assert(prefix.getAttribute("aria-label")!.endsWith(" to Forever"));
   assertEquals(prefix.getAttribute("title"), "Forever");
 });
 

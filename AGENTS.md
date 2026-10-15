@@ -39,7 +39,8 @@ Run from the repo root.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only
-  buttons carry `aria-label` and `title`, deletes confirm in the one modal
+  buttons carry a short `title` and a different, descriptive `aria-label`
+  (never equal), deletes confirm in the one modal
   (`ce-confirm-dialog`), and icons come from Lucide through `app/src/icons.ts`.
 - Number inputs are `ce-spinner` (custom spin arrows, always visible), through
   `numberField` and `clearableNumberField` in `app/src/fields.ts`. A composite
@@ -53,6 +54,13 @@ Run from the repo root.
   `installRoot` and `modsRoot` from `CEDIT_INSTALL_ROOT` and `CEDIT_MODS_ROOT`
   or from `cedit.config.json` (copy `cedit.config.example.json`). Tests that
   need the install skip when `installRoot` is not set.
+- The server watches `cedit.config.json` and pushes folder changes to the app
+  over `GET /api/events`, so a folder change never needs a restart. Environment
+  variables still win over the file. The folder chooser is
+  `POST /api/config/choose` (`server/src/folder-dialog.ts`, Windows only).
+- Interface copy for end users never names a shell command, a config key, or a
+  restart.
+- Use `…` (`&hellip;` in HTML) for an ellipsis, never three periods.
 - Type definitions:
   `base/tealdef/scripts/construction/construction_util_serialized.d.tl` in the
   install folder.
