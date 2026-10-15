@@ -230,6 +230,10 @@ export function createHandler(
           return json({ path: config.configFile, created });
         }
         case "chooseFolder": {
+          // The picked folder is validated before `cedit.config.json` is
+          // written, so a rejected folder never reaches the file. A new
+          // install folder drops the cached base indexes so models and
+          // images re-index on the next request.
           const body = await req.json().catch(() => ({}));
           const setting = body?.setting;
           if (!isFolderSetting(setting)) {

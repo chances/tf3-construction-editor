@@ -7,3 +7,13 @@ export function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, "");
   return trimmed.slice(trimmed.lastIndexOf("/") + 1);
 }
+
+/**
+ * The last segment without its extension. This is `basename(path,
+ * extname(path))` from `@std/path/posix`.
+ */
+export function stem(path: string): string {
+  const name = basename(path);
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}

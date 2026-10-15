@@ -1,6 +1,16 @@
 import { join } from "jsr:@std/path@^1";
 import { UserError } from "./mods.ts";
 
+/**
+ * @remarks The native folder dialog runs through PowerShell with an `Add-Type`
+ * C# wrapper for `IFileOpenDialog` with `FOS_PICKFOLDERS`, and it opens topmost
+ * so the browser does not hide it. It is Windows only. The dialog opens on the
+ * server's desktop, which is the user's desktop because the server binds
+ * `127.0.0.1` only. A cancelled dialog changes nothing. The pure parts
+ * (validation, config merge, output parsing) have sibling tests. The dialog
+ * itself has none.
+ */
+
 /** The two settings the folder chooser can change. */
 export type FolderSetting = "installRoot" | "modsRoot";
 

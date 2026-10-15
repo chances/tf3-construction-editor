@@ -6,6 +6,7 @@ import "./ce-inspector.ts";
 import "./ce-mod-switcher.ts";
 import { redoIcon, trashIcon, undoIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
+import { stem } from "./paths.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
@@ -63,9 +64,16 @@ export class CeEditor extends observer(LitElement) {
       }
       .panes {
         display: grid;
+        /* Each sidebar is a track from 25vw up to 33vw, sized by the icon
+          labels. The surface track never goes under 50vw and takes the rest.
+          Both sidebars use one track size, so the Inspector is never wider
+          than Assets. */
+        --ce-sidebar-width: minmax(
+          25vw,
+          min(33vw, calc(2 * var(--ce-icon-label, 0ch) + 20ch))
+        );
         grid-template-columns:
-          clamp(11rem, 22vw, 17rem) minmax(0, 1fr)
-          clamp(13rem, 26vw, 20rem);
+          var(--ce-sidebar-width) minmax(50vw, 1fr) var(--ce-sidebar-width);
         min-block-size: 0;
       }
       aside {
@@ -90,6 +98,14 @@ export class CeEditor extends observer(LitElement) {
     const undoLabel = store.undoLabel ? `Undo ${store.undoLabel}` : "Undo";
     const redoLabel = store.redoLabel ? `Redo ${store.redoLabel}` : "Redo";
     const deleteLabel = `Delete ${store.doc?.description.name ?? ""}`;
+    // The Inspector widens so the selected icon labels fit, up to its cap.
+    const description = store.doc?.description;
+    const iconLabelChars = Math.max(
+      0,
+      ...[description?.icon, description?.previewIcon].map((icon) =>
+        stem(icon ?? "").length
+      ),
+    );
     return html`
       <header>
         <nav aria-label="Breadcrumb">
@@ -141,7 +157,7 @@ export class CeEditor extends observer(LitElement) {
           ${trashIcon()}
         </button>
       </header>
-      <div class="panes">
+      <div class="panes" style="--ce-icon-label: ${iconLabelChars}ch">
         <aside class="assets" aria-label="Assets">
           <ce-assets></ce-assets>
         </aside>

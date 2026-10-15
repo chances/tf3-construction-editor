@@ -2,7 +2,7 @@ import { css, html, LitElement } from "lit";
 import { missingImageMessage } from "@cedit/schema";
 import { api, type ImageListing, imageUrl } from "./api.ts";
 import { folderIcon, imageIcon } from "./icons.ts";
-import { basename } from "./paths.ts";
+import { basename, stem } from "./paths.ts";
 import {
   clipRect,
   placeList,
@@ -400,7 +400,7 @@ export class CeIconPicker extends LitElement {
   }
 
   override render() {
-    const shown = this.open ? this.text : this.value;
+    const shown = this.open ? this.text : stem(this.value);
     return html`
       <label class="field">
         <span>${this.label}</span>

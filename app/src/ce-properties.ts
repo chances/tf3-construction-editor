@@ -289,27 +289,29 @@ export class CeProperties extends observer(LitElement) {
         doc.description.description,
         (v) => store.edit((d) => (d.description.description = v)),
       )}
+      <div class="cols">
+        <ce-icon-picker
+          label="Icon"
+          .dir=${store.dir}
+          .value=${doc.description.icon ?? ""}
+          @change=${(e: CustomEvent<{ value: string }>) =>
+            store.edit((d) => d.description.icon = e.detail.value || undefined)}
+        ></ce-icon-picker>
+        <ce-icon-picker
+          label="Preview Icon"
+          .dir=${store.dir}
+          .value=${doc.description.previewIcon ?? ""}
+          @change=${(e: CustomEvent<{ value: string }>) =>
+            store.edit((d) =>
+              d.description.previewIcon = e.detail.value || undefined
+            )}
+        ></ce-icon-picker>
+      </div>
       ${textField(
         "Content Folder",
         doc.folder,
         (v) => store.edit((d) => (d.folder = v)),
       )}
-      <ce-icon-picker
-        label="Icon"
-        .dir=${store.dir}
-        .value=${doc.description.icon ?? ""}
-        @change=${(e: CustomEvent<{ value: string }>) =>
-          store.edit((d) => (d.description.icon = e.detail.value || undefined))}
-      ></ce-icon-picker>
-      <ce-icon-picker
-        label="Preview Icon"
-        .dir=${store.dir}
-        .value=${doc.description.previewIcon ?? ""}
-        @change=${(e: CustomEvent<{ value: string }>) =>
-          store.edit((d) =>
-            d.description.previewIcon = e.detail.value || undefined
-          )}
-      ></ce-icon-picker>
       <div class="cols">
         ${groupedSelectField(
           "Menu Category",

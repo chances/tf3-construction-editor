@@ -1,7 +1,7 @@
 # Properties Polish: Icon Type-Ahead and Cost Inputs
 
-Two changes to the Properties pane. The folder chooser button is deferred to
-`.agents/plans/folder-chooser.md`.
+Two changes to the Properties pane. The folder chooser button lives in
+`server/src/folder-dialog.ts` and `ce-mod-picker`.
 
 ## Decisions
 
@@ -88,5 +88,5 @@ second row and the spinners add noise.
 ## Not in This Change
 
 - BC7 and float DDS decoding.
-- The folder chooser button, which stays in `.agents/plans/folder-chooser.md`.
+- The folder chooser button, which lives in `server/src/folder-dialog.ts`.
 - Previews for any field other than the two icons.
