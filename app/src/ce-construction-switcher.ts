@@ -9,9 +9,9 @@ import { sharedStyles } from "./styles.ts";
 type Option = { kind: "existing" | "new"; id: string; name: string };
 
 /**
- * The current construction in the breadcrumb. It reads as a plain label, shows
- * a dropdown arrow on hover or focus, and turns into a typeahead list of the
- * mod's constructions when activated.
+ * The current construction in the breadcrumb. It reads as a label with a
+ * dropdown arrow, shows an outline on focus, and turns into a typeahead list of
+ * the mod's constructions when activated.
  */
 export class CeConstructionSwitcher extends observer(LitElement) {
   static override properties = {
@@ -23,7 +23,8 @@ export class CeConstructionSwitcher extends observer(LitElement) {
     sharedStyles,
     css`
       :host {
-        display: inline-block;
+        display: inline-grid;
+        max-inline-size: 60vw;
         min-inline-size: 0;
         position: relative;
       }
@@ -46,34 +47,54 @@ export class CeConstructionSwitcher extends observer(LitElement) {
       }
       button.label .chevron {
         display: inline-grid;
-        opacity: 0;
-        transition: opacity 0.12s;
       }
-      button.label:hover .chevron,
-      button.label:focus-visible .chevron {
-        opacity: 1;
-      }
-      button.label:hover {
+      button.label:focus-visible {
         border-color: var(--ce-border);
+      }
+      /* Sizes the input to the widest name; takes no height of its own. */
+      .sizer {
+        block-size: 0;
+        font-weight: 600;
+        grid-area: 1 / 1;
+        overflow: hidden;
+        padding-inline: 0.75rem;
+        visibility: hidden;
+        white-space: nowrap;
+      }
+      .sizer span {
+        display: block;
+      }
+      /* Room for the row's delete button and the new row's plus icon. */
+      .sizer span.existing {
+        padding-inline-end: 2.2rem;
+      }
+      .sizer span.new {
+        padding-inline-start: 1.5rem;
       }
       input {
         box-sizing: border-box;
         font-weight: 600;
-        inline-size: 16rem;
-        max-inline-size: 60vw;
+        grid-area: 1 / 1;
+        inline-size: 100%;
+        min-inline-size: 8rem;
+      }
+      li .name,
+      li.new .new-label {
+        white-space: nowrap;
       }
       ul[role="listbox"] {
         background: var(--ce-surface);
         border: 1px solid var(--ce-border);
         border-radius: 6px;
         box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
-        inline-size: 16rem;
+        box-sizing: border-box;
+        inline-size: 100%;
         inset-block-start: calc(100% + 0.25rem);
         inset-inline-start: 0;
         list-style: none;
         margin: 0;
         max-block-size: 16rem;
-        max-inline-size: 60vw;
+        min-inline-size: 8rem;
         overflow: auto;
         padding: 0.25rem;
         position: absolute;
@@ -145,13 +166,17 @@ export class CeConstructionSwitcher extends observer(LitElement) {
 
   /** Constructions that match the typed text, current one named from the doc. */
   get #matches() {
+    return this.#matchesFor(this.query);
+  }
+
+  #matchesFor(query: string) {
     const items = (store.loaded?.constructions ?? []).map((c) => ({
       id: c.id,
       name: c.id === store.doc?.id
         ? store.doc.description.name || c.name
         : c.name,
     }));
-    const q = this.query.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     return q === ""
       ? items
       : items.filter((c) =>
@@ -201,6 +226,12 @@ export class CeConstructionSwitcher extends observer(LitElement) {
     const options = this.#options;
     const active = Math.min(this.active, Math.max(0, options.length - 1));
     return html`
+      <div class="sizer" aria-hidden="true">
+        <span class="new">New Construction</span>
+        ${this.#matchesFor("").map((c) =>
+          html`<span class="existing">${c.name}</span>`
+        )}
+      </div>
       <input
         type="text"
         role="combobox"
@@ -243,7 +274,7 @@ export class CeConstructionSwitcher extends observer(LitElement) {
                     `
                     : html`
                       <span class="body">
-                        <span>${o.name}</span>
+                        <span class="name">${o.name}</span>
                         <span class="id">${o.id}</span>
                       </span>
                       <button

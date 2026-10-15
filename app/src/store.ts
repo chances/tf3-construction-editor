@@ -175,9 +175,7 @@ export class EditorStore {
       this.loadingTitle = "Loading Mods";
     });
     try {
-      await this.#task("Listing your mods from disk",
-        () => this.init(),
-      );
+      await this.#task("Listing your mods from disk", () => this.init());
       if (saved?.modDir) {
         runInAction(() => {
           this.loadingTitle = "Resuming Your Session";

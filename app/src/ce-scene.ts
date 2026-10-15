@@ -22,7 +22,32 @@ export class CeScene extends observer(LitElement) {
         padding: 0;
       }
       ul.tree ul {
+        margin-inline-start: 0.5rem;
         padding-inline-start: 1rem;
+      }
+      /* Guide lines: a rail down each child, and a tick to its row. */
+      ul.tree ul > li {
+        position: relative;
+      }
+      ul.tree ul > li::before {
+        border-inline-start: 1px solid var(--ce-border);
+        content: "";
+        inline-size: 0;
+        inset-block: 0;
+        inset-inline-start: -0.5rem;
+        position: absolute;
+      }
+      ul.tree ul > li:last-child::before {
+        block-size: 0.85rem;
+        inset-block-end: auto;
+      }
+      ul.tree ul > li::after {
+        border-block-start: 1px solid var(--ce-border);
+        content: "";
+        inline-size: 0.4rem;
+        inset-block-start: 0.85rem;
+        inset-inline-start: -0.5rem;
+        position: absolute;
       }
       .row {
         align-items: center;
@@ -79,9 +104,6 @@ export class CeScene extends observer(LitElement) {
         font-variant-numeric: tabular-nums;
         font-weight: 400;
         padding-inline: 0.5rem;
-      }
-      .add {
-        margin-block-start: 0.5rem;
       }
     `,
   ];
@@ -152,9 +174,6 @@ export class CeScene extends observer(LitElement) {
           </ul>
         </li>
       </ul>
-      <button class="add" @click=${() => store.addSubconstruction()}>
-        Add Subconstruction
-      </button>
     `;
   }
 }

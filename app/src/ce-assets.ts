@@ -55,51 +55,52 @@ export class CeAssets extends observer(LitElement) {
             store.searchAssets((e.target as HTMLInputElement).value)}
         />
       </header>
-      ${
-        notIndexed
-          ? html`
-              <ce-error-state heading="Game Not Indexed">
-                Set <code>installRoot</code> in
-                <a
-                  href="/api/config/open"
-                  title="Open cedit.config.json"
-                  @click=${(e: Event) => {
-                    e.preventDefault();
-                    store.openConfigFile();
-                  }}
-                  ><code>cedit.config.json</code></a
-                >
-                to the Transport Fever 3 folder, then restart the server with
-                <code>deno task dev</code>.
-              </ce-error-state>
-            `
-          : html`
-              <div class="body">
-                <p class="muted">
-                  ${store.assets.length} of ${store.assetTotal}
-                  models.${store.assets.length > 0 ? " Select one to place it." : ""}
-                </p>
-                <ul class="list">
-                  ${store.assets.map(
-                    (a) => html`
-                      <li>
-                        <button
-                          class="item"
-                          aria-current="false"
-                          @click=${() => store.addModel(a.id)}
+      ${notIndexed
+        ? html`
+          <ce-error-state heading="Game Not Indexed">
+            Set <code>installRoot</code> in
+            <a
+              href="/api/config/open"
+              title="Open cedit.config.json"
+              @click=${(e: Event) => {
+                e.preventDefault();
+                store.openConfigFile();
+              }}
+              ><code>cedit.config.json</code></a
+            >
+            to the Transport Fever 3 folder, then restart the server with
+            <code>deno task dev</code>.
+          </ce-error-state>
+        `
+        : html`
+          <div class="body">
+            <p class="muted">
+              ${store.assets.length} of ${store.assetTotal}
+              models.${store.assets.length > 0
+                ? " Select one to place it."
+                : ""}
+            </p>
+            <ul class="list">
+              ${store.assets.map(
+                (a) =>
+                  html`
+                    <li>
+                      <button
+                        class="item"
+                        aria-current="false"
+                        @click=${() => store.addModel(a.id)}
+                      >
+                        ${a.id}
+                        <span class="source"
+                          >${a.source}${a.modId ? ` ${a.modId}` : ""}</span
                         >
-                          ${a.id}
-                          <span class="source"
-                            >${a.source}${a.modId ? ` ${a.modId}` : ""}</span
-                          >
-                        </button>
-                      </li>
-                    `,
-                  )}
-                </ul>
-              </div>
-            `
-      }
+                      </button>
+                    </li>
+                  `,
+              )}
+            </ul>
+          </div>
+        `}
     `;
   }
 }

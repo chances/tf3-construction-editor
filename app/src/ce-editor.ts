@@ -3,6 +3,7 @@ import "./ce-assets.ts";
 import "./ce-canvas.ts";
 import "./ce-construction-switcher.ts";
 import "./ce-inspector.ts";
+import "./ce-mod-switcher.ts";
 import { redoIcon, trashIcon, undoIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
 import { store } from "./state.ts";
@@ -34,30 +35,17 @@ export class CeEditor extends observer(LitElement) {
         align-items: center;
         display: flex;
         flex: 1;
-        gap: 0.4rem;
+        gap: 0.25rem;
         min-inline-size: 0;
       }
       header nav .sep {
         color: var(--ce-muted);
       }
-      /* The construction name and its delete button share a text baseline. */
-      header nav .current {
-        align-items: baseline;
-        display: inline-flex;
-        gap: 0.15rem;
-        min-inline-size: 0;
-      }
-      header nav .trash {
-        background: transparent;
+      /* Matches a switcher label's box so every separator has equal space. */
+      header nav .static {
         border: 1px solid transparent;
-        color: var(--ce-muted);
-        display: inline-flex;
-        padding: 0.15rem;
-      }
-      header nav .trash:hover,
-      header nav .trash:focus-visible {
-        border-color: var(--ce-error);
-        color: var(--ce-error);
+        padding-block: 0.2rem;
+        padding-inline: 0.4rem;
       }
       .message {
         color: var(--ce-error);
@@ -68,6 +56,10 @@ export class CeEditor extends observer(LitElement) {
         justify-content: center;
         padding-block: 0.3rem;
         padding-inline: 0.4rem;
+      }
+      button.icon-button.danger {
+        border-color: var(--ce-error);
+        color: var(--ce-error);
       }
       .panes {
         display: grid;
@@ -95,32 +87,17 @@ export class CeEditor extends observer(LitElement) {
   ];
 
   override render() {
-    const modName = store.loaded?.modInfo.name ?? "";
     const undoLabel = store.undoLabel ? `Undo ${store.undoLabel}` : "Undo";
     const redoLabel = store.redoLabel ? `Redo ${store.redoLabel}` : "Redo";
     const deleteLabel = `Delete ${store.doc?.description.name ?? ""}`;
     return html`
       <header>
         <nav aria-label="Breadcrumb">
-          <button @click=${() => store.goTo("details")}>${modName}</button>
+          <ce-mod-switcher></ce-mod-switcher>
           <span class="sep" aria-hidden="true">/</span>
-          <button @click=${() => store.goTo("constructions")}>
-            Constructions
-          </button>
+          <span class="static">Constructions</span>
           <span class="sep" aria-hidden="true">/</span>
-          <span class="current">
-            <ce-construction-switcher></ce-construction-switcher>
-            <button
-              class="trash"
-              aria-label=${`Delete ${
-                store.doc?.description.name ?? ""
-              } construction`}
-              title=${deleteLabel}
-              @click=${() => store.doc && store.requestDelete(store.doc.id)}
-            >
-              ${trashIcon(14)}
-            </button>
-          </span>
+          <ce-construction-switcher></ce-construction-switcher>
         </nav>
         ${store.message
           ? html`<span class="message">${store.message}</span>`
@@ -148,6 +125,15 @@ export class CeEditor extends observer(LitElement) {
           ?disabled=${!store.doc || store.busy}
           @click=${() => store.exportCurrent()}
         >Export</button>
+        <button
+          class="icon-button danger"
+          ?disabled=${!store.doc}
+          aria-label=${deleteLabel}
+          title=${deleteLabel}
+          @click=${() => store.doc && store.requestDelete(store.doc.id)}
+        >
+          ${trashIcon()}
+        </button>
       </header>
       <div class="panes">
         <aside class="assets" aria-label="Assets">
