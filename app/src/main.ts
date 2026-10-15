@@ -1,1 +1,1 @@
-export {};
+import "./ce-app.ts";

@@ -1,0 +1,5 @@
+{
+  "installRoot": "<folder that holds base/content, for example the Transport Fever 3 Steam folder>",
+  "modsRoot": "<folder that holds one subfolder per mod>",
+  "port": 8787
+}

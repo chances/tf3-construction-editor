@@ -1,0 +1,35 @@
+function data()
+return { 
+		boundingInfo = { 
+			bbMax = { 1.5, 1.5, 1.5, },
+			bbMin = { -1.5, -1.5, -1.5, },
+		},
+		collider = { 
+			params = { 
+				halfExtents = { 1.5, 1.5, 1.5, },
+			},
+			transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, },
+			type = "BOX",
+		},
+		lods = {
+			{ 
+				node = { 
+					children = {
+						{ 
+							materials = { "mat/missing_object.mtl", },
+							mesh = "msh/cube_1x1_lod0.msh",
+							name = "cube_1x1",
+							transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, },
+						},
+					},
+					name = "RootNode",
+					transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, },
+				},
+				visibleFrom = 0,
+				visibleTo = 1000,
+			},
+		},
+		metadata = { },
+		version = 2,
+	}
+end

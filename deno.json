@@ -1,9 +1,11 @@
 {
   "workspace": ["./schema", "./export", "./server", "./app"],
+  "nodeModulesDir": "auto",
   "tasks": {
-    "dev": "deno task --cwd app dev",
+    "dev": "deno task --cwd server start & deno task --cwd app dev",
+    "serve": "deno task --cwd server start",
     "build": "deno task --cwd app build",
-    "test": "deno test --permit-no-files",
+    "test": "deno test --allow-read --allow-write --allow-env --permit-no-files",
     "check": "deno check schema/mod.ts export/mod.ts server/mod.ts app/src/main.ts",
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check"

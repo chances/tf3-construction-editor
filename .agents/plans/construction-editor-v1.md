@@ -41,13 +41,14 @@ files.
 | Height     | Z is a numeric inspector field per item, plus a Z-band layer filter.                                                                                                                               |
 | Metadata   | Typed forms for known keys (`ConstructionConfig`, stocks, effects), generic key/value tree for the rest.                                                                                           |
 | Validation | Live lint panel. Errors block export. Warnings do not.                                                                                                                                             |
-| Layout     | Left: subconstruction and item tree. Center: canvas. Right: inspector. Bottom: lint and asset browser.                                                                                             |
+| Layout     | Start flow: Choose a Mod, Mod Details, Construction. Editor page: Assets aside, canvas, Inspector aside (scene tree with properties, Problems footer).                                             |
 
-## Mod project
+## Mod Project
 
 - The app opens a mod folder that holds `mod.json`, or creates
-  `<modsRoot>/<modId>/` with a New mod action.
-- The mod inspector edits `mod.json` (`modId`, `revision`, `severityAdd`,
+  `<modsRoot>/<modId>/` with the New Mod card. A wizard then shows Mod Details
+  and a construction chooser before the editor page opens.
+- The Mod Details step edits `mod.json` (`modId`, `revision`, `severityAdd`,
   `severityRemove`, `visible`, `cosmetic`, `dependencies`, `incompatibilities`)
   and `_metadata/modinfo.json` (`name`, `summary`, `description`, `authors`,
   `tags`, `localization`). Unknown keys survive a write. `strings.json` is never
@@ -78,7 +79,7 @@ Each folder sits at the repo root and is a Deno workspace member.
 | `./server` | Zip index, `.mdl`/`.msh` readers, file API, export writer              |
 | `./app`    | Lit components, MobX stores, commands, canvas                          |
 
-## Phases (export-first vertical slice)
+## Phases (Export-First Vertical Slice)
 
 ### Phase 0: Scaffold (Done)
 
@@ -86,7 +87,7 @@ Each folder sits at the repo root and is a Deno workspace member.
 - `AGENTS.md` with a `CLAUDE.md` symlink (same turn).
 - Verify: `deno task test` runs an empty suite.
 
-### Phase 1: Thin slice (models + metadata, end to end)
+### Phase 1: Thin Slice (Models + Metadata, End to End) (Done)
 
 - Schema for `models`, `metadata`, `tag`, top-level cost fields, `snapPoint`.
 - Schema for the mod (`mod.json`, `modinfo.json`) and the `.con.lua`
@@ -101,7 +102,7 @@ Each folder sits at the repo root and is a Deno workspace member.
 - Tests: schema round trip, export golden file, `.mdl` reader against 3 real
   files, manifest refusal to overwrite an unowned file.
 
-### Phase 2: Editing core
+### Phase 2: Editing Core (Done)
 
 - Command stack, undo/redo, selection, move/rotate/scale gizmos.
 - Snapping engine with the four modes.
@@ -109,7 +110,7 @@ Each folder sits at the repo root and is a Deno workspace member.
   model.
 - Multiple subconstructions with `tag` and layer visibility.
 
-### Phase 3: Ground faces
+### Phase 3: Ground Faces
 
 - Polygon draw/edit, counterclockwise enforcement.
 - Paint mode list per face (FILL, STROKE, STROKE_INNER, STROKE_OUTER), texture
@@ -117,20 +118,20 @@ Each folder sits at the repo root and is a Deno workspace member.
 - `loop`, `alignmentOffsetMode`, `alignmentOffset`, `alignmentDirMode`,
   `alignmentDir` fields.
 
-### Phase 4: Colliders and terrain alignment
+### Phase 4: Colliders and Terrain Alignment
 
 - BOX, CYLINDER, POINT_CLOUD colliders with `halfExtents` or `points`.
 - Terrain alignment lists: `type`, `faces` or `triangles`, `slopeLow`,
   `slopeHigh`, `optional`.
 
-### Phase 5: Lane lists and runways
+### Phase 5: Lane Lists and Runways
 
 - Lane nodes (position, tangent, width), `speedLimit`, `transportModes`,
   `linkable`, `forwardOnly`, `needsReservation`, `pedestrianWalkPenalty`.
 - Runways: LANDING/TAKEOFF, `edges` and `node` pairs referencing lane list and
   node indices.
 
-### Phase 6: Edge lists and edge objects
+### Phase 6: Edge Lists and Edge Objects
 
 - STREET/TRACK edge lists: `edges`, `snapNodes`, `freeNodes`, `edgeType`,
   `edgeTypeName`, `params`, `alignTerrain`.
@@ -138,7 +139,7 @@ Each folder sits at the repo root and is a Deno workspace member.
 - Edge objects: `edge`, `param`, `left`, `model`. Lint warns on more than one
   object per edge.
 
-### Phase 7: Paint terrain
+### Phase 7: Paint Terrain
 
 - "Paint Terrain" mode: brush writes brightness values into the polygon's
   raster.
@@ -147,13 +148,13 @@ Each folder sits at the repo root and is a Deno workspace member.
   type 3), `.gtex.lua` writer with `texSize`, `priority`.
 - Paint strokes are commands that merge per stroke.
 
-### Phase 8: Lint, report, in-game checklist
+### Phase 8: Lint, Report, In-Game Checklist
 
 - Full lint rules (see below).
 - Export report: written files, unverified fields used.
 - Manual checklist file `docs/in-game-checklist.md`.
 
-## Lint rules
+## Lint Rules
 
 | Rule                                    | Severity |
 | --------------------------------------- | -------- |
@@ -180,7 +181,7 @@ Each folder sits at the repo root and is a Deno workspace member.
 - Manual in-game checklist: construction loads, colliders block, lanes show with
   Right Alt + L, ground texture appears.
 
-## Open verification items
+## Open Verification Items
 
 Each item is a task with an in-game or script-source check. The result goes into
 `docs/formats.md`.

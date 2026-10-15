@@ -1,0 +1,132 @@
+import { css, html, LitElement } from "lit";
+import { errorIcon, warningIcon } from "./icons.ts";
+import { observer } from "./observer.ts";
+import { store } from "./state.ts";
+import { sharedStyles } from "./styles.ts";
+
+/** Footer pane: lint errors and warnings, plus the last export result. */
+export class CeProblems extends observer(LitElement) {
+  static override styles = [
+    sharedStyles,
+    css`
+      :host {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-block-size: 0;
+      }
+      header {
+        align-items: baseline;
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.5rem 0.75rem 0;
+      }
+      header h2 {
+        margin: 0;
+      }
+      .chip {
+        align-items: center;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: 0.8rem;
+        gap: 0.3rem;
+        padding-block: 0.05rem;
+        padding-inline: 0.5rem;
+        position: relative;
+      }
+      .chip.error {
+        color: var(--ce-error);
+      }
+      .chip.warning {
+        color: var(--ce-warning);
+      }
+      .visually-hidden {
+        block-size: 1px;
+        clip-path: inset(50%);
+        inline-size: 1px;
+        overflow: hidden;
+        position: absolute;
+        white-space: nowrap;
+      }
+      .body {
+        overflow: auto;
+        padding: 0.5rem 0.75rem;
+      }
+      ul {
+        margin: 0;
+        padding-inline-start: 1.1rem;
+      }
+      li {
+        margin-block-end: 0.25rem;
+      }
+    `,
+  ];
+
+  override render() {
+    const outcome = store.exportOutcome;
+    const errors = store.issues.filter((i) => i.severity === "error").length;
+    const warnings = store.issues.length - errors;
+    return html`
+      <header>
+        <h2>Problems</h2>
+        ${errors === 0 && warnings === 0
+          ? html`<span class="muted">None</span>`
+          : html`
+            ${errors > 0
+              ? html`
+                <span
+                  class="chip error"
+                  title=${`${errors} ${errors === 1 ? "Error" : "Errors"}`}
+                >${errorIcon(14)}<span class="count">${errors}</span><span
+                                  class="visually-hidden"
+                                >${errors === 1
+                                  ? "Error"
+                                  : "Errors"}</span></span>
+              `
+              : null}
+            ${warnings > 0
+              ? html`
+                <span
+                  class="chip warning"
+                  title=${`${warnings} ${
+                    warnings === 1 ? "Warning" : "Warnings"
+                  }`}
+                >${warningIcon(14)}<span class="count">${warnings}</span><span
+                                  class="visually-hidden"
+                                >${warnings === 1
+                                  ? "Warning"
+                                  : "Warnings"}</span></span>
+              `
+              : null}
+          `}
+      </header>
+      <div class="body">
+        ${outcome?.refused.length
+          ? html`
+            <p class="error">Export refused:</p>
+            <ul>${outcome.refused.map(
+              (r) => html`<li class="error">${r.path}: ${r.reason}</li>`,
+            )}</ul>
+          `
+          : null}
+        ${outcome?.ok
+          ? html`
+            <p>Wrote ${outcome.written.length} files:</p>
+            <ul>${outcome.written.map((w) => html`<li>${w}</li>`)}</ul>
+          `
+          : null}
+        ${store.issues.length === 0
+          ? html`<p class="muted">No problems found.</p>`
+          : html`<ul>${
+            store.issues.map(
+              (i) =>
+                html`<li class=${i.severity}><strong>${i.severity}</strong>
+                ${i.path}: ${i.message}</li>`,
+            )
+          }</ul>`}
+      </div>
+    `;
+  }
+}
+
+customElements.define("ce-problems", CeProblems);

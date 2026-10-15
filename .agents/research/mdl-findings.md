@@ -1,4 +1,4 @@
-# TF3 model / mesh / ground texture findings
+# TF3 Model / Mesh / Ground Texture Findings
 
 All paths below are inside archives under
 `D:\Steam\steamapps\common\Transport Fever 3\base\content\`. Extracted copies
@@ -151,7 +151,7 @@ for (const sm of m.subMeshes) {
 Top-down 2D: take x,y of triangles after applying the node transform chain, fill
 triangles, ignore z or sort by z.
 
-## 3. Ground textures
+## 3. Ground Textures
 
 Definition files `*.gtex.lua` (Lua data table, with
 `require "/scripts/tex_util.tl"`; the
@@ -261,7 +261,7 @@ Other `.con.lua` constructs (real examples, all in `stations/air.zip`
   `preProcessScript`. Geometry comes from the `.script.lua`. A `.con.lua` for
   small buildings (`buildings/a/c1/1x1_01.zip`) is similar.
 
-## 4. Archive map (relative to `base\content\`)
+## 4. Archive Map (Relative to `base\content\`)
 
 Loose directories (`assets/`, `buildings/`, `stations/`, ...) contain many small
 `.zip` files; top-level zips: animal, base, characters, climates, economy,
@@ -312,7 +312,7 @@ scripts, warehouses.
   - `edgeObjects` also in `game_mechanics.zip`
     `game_mechanics/towns/town_util.tl`
 
-## Not determined
+## Not Determined
 
 - Exact engine tiling semantics of `texSize` vs `texCoords` outside 0..1 (not
   verified in the engine).

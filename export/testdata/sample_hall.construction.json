@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "sample_hall",
+  "folder": "stations/custom",
+  "description": {
+    "name": "Sample hall",
+    "description": "A \"quoted\" test."
+  },
+  "availability": { "yearFrom": 1900, "yearTo": 2100 },
+  "menuCategory": { "category": "air_buildings", "order": 15000 },
+  "costs": { "cost": 1000, "maintenanceCost": 10, "noCostAtAll": false },
+  "metadata": { "ConstructionConfig": { "level": 1 } },
+  "subconstructions": [
+    {
+      "label": "Main",
+      "models": [
+        {
+          "id": "/placeholders/unit_cube.mdl",
+          "transf": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 4, 2, 0, 1]
+        }
+      ]
+    }
+  ]
+}

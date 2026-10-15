@@ -1,16 +1,17 @@
 {
   "name": "@cedit/app",
-  "version": "0.0.0",
-  "exports": "./src/main.ts",
+  "version": "0.1.0",
+  "exports": {},
   "tasks": {
     "dev": "deno run -A npm:vite",
     "build": "deno run -A npm:vite build"
   },
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"]
+    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
   },
   "imports": {
     "lit": "npm:lit@^3.3.3",
+    "lucide": "npm:lucide@^1.57.0",
     "mobx": "npm:mobx@^7.0.6",
     "vite": "npm:vite@^8.3.4"
   }

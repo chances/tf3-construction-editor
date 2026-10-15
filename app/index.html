@@ -4,8 +4,51 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Construction Editor</title>
+    <style>
+    :root {
+      color-scheme: light dark;
+      --ce-surface: #ffffff;
+      --ce-surface-2: #f1f3f5;
+      --ce-canvas: #f7f8fa;
+      --ce-border: #ced4da;
+      --ce-text: #1b1f23;
+      --ce-muted: #5c6670;
+      --ce-accent: #0b63ce;
+      --ce-on-accent: #ffffff;
+      --ce-selected: #cfe2ff;
+      --ce-grid: #dfe3e8;
+      --ce-model: #3b5b8a;
+      --ce-model-fill: #a9c1e3;
+      --ce-error: #b42318;
+      --ce-warning: #8a5a00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ce-surface: #15181c;
+        --ce-surface-2: #22262c;
+        --ce-canvas: #101316;
+        --ce-border: #3a4048;
+        --ce-text: #e6e8eb;
+        --ce-muted: #9aa3ad;
+        --ce-accent: #5ea1ff;
+        --ce-on-accent: #0b1420;
+        --ce-selected: #1d3557;
+        --ce-grid: #232830;
+        --ce-model: #7fa6d9;
+        --ce-model-fill: #2b4263;
+        --ce-error: #ff8a80;
+        --ce-warning: #ffc266;
+      }
+    }
+    html,
+    body {
+      background: var(--ce-surface);
+      margin: 0;
+    }
+    </style>
   </head>
   <body>
+    <ce-app></ce-app>
     <script type="module" src="src/main.ts"></script>
   </body>
 </html>
