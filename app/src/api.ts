@@ -112,4 +112,26 @@ export const api = {
     ),
   model: (dir: string, id: string) =>
     call<MdlSummary>("GET", `/mods/${enc(dir)}/model?id=${enc(id)}`),
+  images: (dir: string, q: string, limit = 50) =>
+    call<{
+      total: number;
+      exact: boolean;
+      folders: string[];
+      entries: ImageListing[];
+    }>(
+      "GET",
+      `/mods/${enc(dir)}/images?q=${enc(q)}&limit=${limit}`,
+    ),
 };
+
+export interface ImageListing {
+  id: string;
+  source: "base" | "mod" | "dependency";
+  modId?: string;
+  format: "tga" | "dds" | "png";
+}
+
+/** URL of a PNG thumbnail of an image, scaled to fit `size` pixels. */
+export function imageUrl(dir: string, id: string, size = 64): string {
+  return `/api/mods/${enc(dir)}/image?id=${enc(id)}&size=${size}`;
+}

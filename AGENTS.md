@@ -39,8 +39,8 @@ Run from the repo root.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only
-  buttons carry `aria-label` and `title`, and icons come from Lucide through
-  `app/src/icons.ts`.
+  buttons carry `aria-label` and `title`, deletes confirm in the one modal
+  (`ce-confirm-dialog`), and icons come from Lucide through `app/src/icons.ts`.
 - Game files live outside this repo:
   `D:\Steam\steamapps\common\Transport Fever 3`. Never extract archives into the
   install folder.

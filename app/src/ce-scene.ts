@@ -83,49 +83,43 @@ export class CeScene extends observer(LitElement) {
                     <div class="row">
                       <input
                         type="checkbox"
-                        title="Layer visible"
-                        aria-label="Layer visible"
+                        title="Toggle layer visibility"
+                        aria-label=${`${sub.hidden ? "Show" : "Hide"} layer`}
                         .checked=${!sub.hidden}
                         @change=${(e: Event) =>
                           store.setHidden(
                             si,
                             !(e.target as HTMLInputElement).checked,
                           )}
-                      />
-                      <button
-                        class="item"
-                        aria-current=${String(
-                          inspect === "layer" && store.activeSub === si,
-                        )}
-                        @click=${() => store.selectLayer(si)}
-                      >
-                                        ${sub.label ??
-                                          `Layer ${
-                                            si + 1
-                                          }`}${sub.tag !== undefined
-                                          ? html`
-                                            <span class="muted">tag ${sub
-                                              .tag}</span>
-                                          `
-                                          : null}
-                                      </button>
-                    </div>
+                          @click=${() => store.selectLayer(si)}
+                        >
+                                          ${sub.label ??
+                                            `Layer ${
+                                              si + 1
+                                            }`}${sub.tag !== undefined
+                                            ? html`
+                                              <span class="muted">tag ${sub
+                                                .tag}</span>
+                                            `
+                                            : null}
+                                        </button>
+                      </div>
                     <ul>
-                                      ${sub.models.map(
-                                        (m, mi) =>
-                                          html`<li><button
+                                        ${sub.models.map(
+                                          (m, mi) =>
+                                            html`<li><button
                           class="item"
                           title=${m.id}
                           aria-current=${
-                                            String(
-                                              store.selection?.sub === si &&
-                                                store.selection.model === mi,
-                                            )
-                                          }
+                                              String(
+                                                store.selection?.sub === si &&
+                                                  store.selection.model === mi,
+                                              )
+                                            }
                           @click=${() => store.select({ sub: si, model: mi })}
                         >${baseName(m.id)}</button></li>`,
-                                      )}
-                                    </ul>
+                                        )}
+                                      </ul>
                   </li>
                 `,
             )}

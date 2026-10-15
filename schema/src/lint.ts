@@ -20,6 +20,19 @@ export const UNVERIFIED_FIELDS: Record<string, string> = {
 export interface LintContext {
   /** Returns true when the model id exists in the asset index. */
   resolveModel(id: string): boolean;
+  /**
+   * Returns true when the image id exists in the image index, false when it
+   * does not, and `null` when the index cannot say (the game is not set up).
+   * Omit it to skip image checks.
+   */
+  resolveImage?(id: string): boolean | null;
+}
+
+/** Why an image id is not valid, written for the person who typed it. */
+export function missingImageMessage(id: string): string {
+  return id.endsWith("/")
+    ? `${id} is a folder, not an image. Pick an image inside it.`
+    : `${id} is not an image in the game, this mod, or its dependencies. Pick one from the list.`;
 }
 
 export const MOD_NAME_MAX = 32;
@@ -89,6 +102,17 @@ export function lintConstruction(
       path: "description.description",
       message: `The description is longer than ${DESCRIPTION_MAX} characters.`,
     });
+  }
+  for (const field of ["icon", "previewIcon"] as const) {
+    const id = doc.description[field]?.trim() ?? "";
+    if (id !== "" && ctx.resolveImage?.(id) === false) {
+      issues.push({
+        severity: "warning",
+        rule: "image-resolves",
+        path: `description.${field}`,
+        message: missingImageMessage(id),
+      });
+    }
   }
   doc.subconstructions.forEach((sub, si) => {
     sub.models.forEach((model, mi) => {

@@ -5,6 +5,7 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.6",
+    "npm:@happy-dom/global-registrator@^14.12.3": "14.12.3",
     "npm:fflate@0.8.2": "0.8.2",
     "npm:lit@^3.3.3": "3.3.3",
     "npm:lucide@1.57.0": "1.57.0",
@@ -31,6 +32,12 @@
     }
   },
   "npm": {
+    "@happy-dom/global-registrator@14.12.3": {
+      "integrity": "sha512-VL6mjnIhqD1l9zYBmdIx5Q3qNiNY0ZBByrDV2Z7hHDMsjhqwaVI2/uQZ7uyCsgRWvubSG1yZ74sEK2inDBBw/w==",
+      "dependencies": [
+        "happy-dom"
+      ]
+    },
     "@lit-labs/ssr-dom-shim@1.6.0": {
       "integrity": "sha512-VHb0ALPMTlgKjM6yIxxoQNnpKyUKLD04VzeQdsiXkMqkvYlAHxq9glGLmgbb889/1GsohSOAjvQYoiBppXFqrQ=="
     },
@@ -127,6 +134,9 @@
     "detect-libc@2.1.2": {
       "integrity": "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="
     },
+    "entities@4.5.0": {
+      "integrity": "sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw=="
+    },
     "fdir@6.5.0_picomatch@4.0.7": {
       "integrity": "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==",
       "dependencies": [
@@ -143,6 +153,14 @@
       "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
       "os": ["darwin"],
       "scripts": true
+    },
+    "happy-dom@14.12.3": {
+      "integrity": "sha512-vsYlEs3E9gLwA1Hp+w3qzu+RUDFf4VTT8cyKqVICoZ2k7WM++Qyd2LwzyTi5bqMJFiIC/vNpTDYuxdreENRK/g==",
+      "dependencies": [
+        "entities",
+        "webidl-conversions",
+        "whatwg-mimetype"
+      ]
     },
     "lightningcss-android-arm64@1.33.0": {
       "integrity": "sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==",
@@ -312,12 +330,19 @@
         "fsevents"
       ],
       "bin": true
+    },
+    "webidl-conversions@7.0.0": {
+      "integrity": "sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g=="
+    },
+    "whatwg-mimetype@3.0.0": {
+      "integrity": "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q=="
     }
   },
   "workspace": {
     "members": {
       "app": {
         "dependencies": [
+          "npm:@happy-dom/global-registrator@^14.12.3",
           "npm:lit@^3.3.3",
           "npm:lucide@^1.57.0",
           "npm:mobx@^7.0.6",

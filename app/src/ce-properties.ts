@@ -12,9 +12,9 @@ import {
   textAreaField,
   textField,
 } from "./fields.ts";
+import "./ce-icon-picker.ts";
 import "./ce-range-slider.ts";
 import type { RangeChange } from "./ce-range-slider.ts";
-import { chevronDownIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
@@ -129,26 +129,31 @@ export class CeProperties extends observer(LitElement) {
         padding-inline: 0.3rem;
         pointer-events: auto;
       }
-      .legend-toggle {
-        align-items: center;
-        border: 0;
-        color: inherit;
-        display: inline-flex;
-        font: inherit;
-        gap: 0.25rem;
-        padding: 0;
-      }
-      .legend-toggle .chevron {
-        display: inline-flex;
-        transition: transform 0.15s;
-      }
-      .legend-toggle[aria-expanded="false"] .chevron {
-        transform: rotate(-90deg);
-      }
       .legend-check {
         align-items: center;
         display: inline-flex;
         gap: 0.3rem;
+      }
+      /* Three costs in one row: right-aligned figures, no spinner arrows. */
+      .costs {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .costs input[type="number"] {
+        appearance: textfield;
+        box-sizing: border-box;
+        font-variant-numeric: tabular-nums;
+        inline-size: 100%;
+        text-align: end;
+      }
+      .costs input[type="number"]::-webkit-inner-spin-button,
+      .costs input[type="number"]::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+      }
+      .costs input:disabled {
+        opacity: 0.55;
       }
       .cols {
         display: grid;
@@ -160,17 +165,6 @@ export class CeProperties extends observer(LitElement) {
       }
     `,
   ];
-
-  static override properties = {
-    costsOpen: { state: true },
-  };
-
-  declare costsOpen: boolean;
-
-  constructor() {
-    super();
-    this.costsOpen = true;
-  }
 
   override render() {
     if (!store.doc) return null;
@@ -286,18 +280,23 @@ export class CeProperties extends observer(LitElement) {
         doc.folder,
         (v) => store.edit((d) => (d.folder = v)),
       )}
+      <ce-icon-picker
+        label="Icon"
+        .dir=${store.dir}
+        .value=${doc.description.icon ?? ""}
+        @change=${(e: CustomEvent<{ value: string }>) =>
+          store.edit((d) => (d.description.icon = e.detail.value || undefined))}
+      ></ce-icon-picker>
+      <ce-icon-picker
+        label="Preview icon"
+        .dir=${store.dir}
+        .value=${doc.description.previewIcon ?? ""}
+        @change=${(e: CustomEvent<{ value: string }>) =>
+          store.edit((d) =>
+            d.description.previewIcon = e.detail.value || undefined
+          )}
+      ></ce-icon-picker>
       <div class="cols">
-        ${textField(
-          "Icon",
-          doc.description.icon ?? "",
-          (v) => store.edit((d) => (d.description.icon = v || undefined)),
-        )}
-        ${textField(
-          "Preview icon",
-          doc.description.previewIcon ?? "",
-          (v) =>
-            store.edit((d) => (d.description.previewIcon = v || undefined)),
-        )}
         ${groupedSelectField(
           "Menu category",
           doc.menuCategory.category,
@@ -333,56 +332,51 @@ export class CeProperties extends observer(LitElement) {
       </fieldset>
       <fieldset class="titled" aria-label="Costs">
         <div class="group-title">
-          <button
-            class="legend-toggle"
-            aria-expanded=${this.costsOpen ? "true" : "false"}
-            aria-label=${this.costsOpen ? "Collapse Costs" : "Expand Costs"}
-            title=${this.costsOpen ? "Collapse Costs" : "Expand Costs"}
-            @click=${() => (this.costsOpen = !this.costsOpen)}
-          >
-            <span class="chevron" aria-hidden="true">${chevronDownIcon(
-              12,
-            )}</span>
-            Costs
-          </button>
+          <span>Costs</span>
           <label class="legend-check">
             <input
               type="checkbox"
               .checked=${doc.costs.noCostAtAll ?? false}
               @change=${(e: Event) => {
                 const checked = (e.target as HTMLInputElement).checked;
-                this.costsOpen = !checked;
                 store.edit((d) => (d.costs.noCostAtAll = checked || undefined));
               }}
             />
             <span>No costs at all</span>
           </label>
         </div>
-        ${!this.costsOpen ? null : html`
-          <div class="cols">
-            ${numberField(
-              "Cost",
-              doc.costs.cost,
-              (v) => store.edit((d) => (d.costs.cost = v)),
-              "any",
-              doc.costs.noCostAtAll ?? false,
-            )}
-            ${numberField(
-              "Maintenance",
-              doc.costs.maintenanceCost,
-              (v) => store.edit((d) => (d.costs.maintenanceCost = v)),
-              "any",
-              doc.costs.noCostAtAll ?? false,
-            )}
-            ${numberField(
-              "Bulldoze",
-              doc.costs.bulldozeCost,
-              (v) => store.edit((d) => (d.costs.bulldozeCost = v)),
-              "any",
-              doc.costs.noCostAtAll ?? false,
-            )}
-          </div>
-        `}
+        ${doc.costs.noCostAtAll
+          ? html`
+            <p class="muted">This construction costs nothing.</p>
+          `
+          : html`
+            <div class="costs">
+              ${numberField(
+                "Cost",
+                doc.costs.cost,
+                (v) => store.edit((d) => (d.costs.cost = v)),
+                "100",
+                doc.costs.noCostAtAll ?? false,
+                0,
+              )}
+              ${numberField(
+                "Maintenance",
+                doc.costs.maintenanceCost,
+                (v) => store.edit((d) => (d.costs.maintenanceCost = v)),
+                "100",
+                doc.costs.noCostAtAll ?? false,
+                0,
+              )}
+              ${numberField(
+                "Bulldoze",
+                doc.costs.bulldozeCost,
+                (v) => store.edit((d) => (d.costs.bulldozeCost = v)),
+                "100",
+                doc.costs.noCostAtAll ?? false,
+                0,
+              )}
+            </div>
+          `}
       </fieldset>
     `;
   }

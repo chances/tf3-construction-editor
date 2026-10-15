@@ -32,7 +32,7 @@ export class CeEmptyState extends LitElement {
       p {
         color: var(--ce-muted);
         margin: 0;
-        max-inline-size: 28ch;
+        max-inline-size: min(60ch, 100%);
       }
     `,
   ];

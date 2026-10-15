@@ -51,6 +51,47 @@ Deno.test("lint warns on a used unverified field without blocking export", () =>
   assert(!hasErrors(issues));
 });
 
+const knownImage = "/gui/icons/arrow.tga";
+const imageCtx = {
+  ...ctx,
+  resolveImage: (id: string) => id === knownImage,
+};
+
+Deno.test("lint warns on an icon that is not an indexed image", () => {
+  const doc = newConstruction("a");
+  doc.description.icon = "/gui/icons/missing.tga";
+  doc.description.previewIcon = "/gui/builtin/";
+  const issues = lintConstruction(doc, imageCtx);
+  assertEquals(
+    issues.map((i) => [i.severity, i.rule, i.path]),
+    [
+      ["warning", "image-resolves", "description.icon"],
+      ["warning", "image-resolves", "description.previewIcon"],
+    ],
+  );
+  assert(issues[0].message.includes("/gui/icons/missing.tga"));
+  assert(issues[1].message.includes("is a folder, not an image"));
+  assert(!hasErrors(issues), "an icon never blocks export");
+});
+
+Deno.test("lint accepts an indexed icon, an empty icon, and an unknown index", () => {
+  const doc = newConstruction("a");
+  doc.description.icon = knownImage;
+  assertEquals(lintConstruction(doc, imageCtx), []);
+
+  doc.description.icon = "";
+  doc.description.previewIcon = undefined;
+  assertEquals(lintConstruction(doc, imageCtx), []);
+
+  doc.description.icon = "/anything.tga";
+  assertEquals(lintConstruction(doc, ctx), [], "no resolver, no check");
+  assertEquals(
+    lintConstruction(doc, { ...ctx, resolveImage: () => null }),
+    [],
+    "a null answer means the index cannot say",
+  );
+});
+
 Deno.test("lint warns on a scaled model", () => {
   const doc = newConstruction("a");
   doc.subconstructions[0].models.push({

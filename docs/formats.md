@@ -30,6 +30,22 @@ A base game zip mounts at its folder: `stations/air.zip` holding
 `air/airfield/apron.mdl` provides `/stations/air/airfield/apron.mdl`. A zip at
 the content root (`placeholders.zip`) provides `/placeholders/...`.
 
+## Image IDs
+
+Images use the same id forms as models. The editor indexes `.tga`, `.dds`, and
+`.png` files from the base game zips, the open mod's `content/`, and its
+dependencies, about 20,900 images in the base game.
+
+- The shipped zips hold UI icons mostly as `name@2x.tga`, while shipped
+  constructions write `icon = "/placeholders/generic.tga"`. `@2x` marks the same
+  icon at a higher resolution. The editor indexes both under the base id
+  (`/placeholders/generic.tga`), accepts either form when checking a value, and
+  reads thumbnails from the smaller base file when there is one, and from the
+  `@2x` file only when that is all the game ships.
+- Most UI icons live under `/gui`. The type-ahead lists `/gui` first.
+- Formats seen in the base game: TGA types 2, 3, 10, and 11; DDS BC1, BC3, BC4,
+  BC5, uncompressed R8 and BGRA8, and BC7 (not decoded, about 1.2% of files).
+
 ## Construction Files
 
 | File             | Content                                                                                               | Status                                                                               |

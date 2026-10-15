@@ -1,4 +1,5 @@
 import { html, type TemplateResult } from "lit";
+import { ifDefined } from "lit/directives/if-defined.js";
 
 function inputValue(event: Event): string {
   return (event.target as HTMLInputElement).value;
@@ -33,10 +34,12 @@ export function numberField(
   onChange: (value: number | undefined) => void,
   step = "any",
   disabled = false,
+  min?: number,
 ): TemplateResult {
   return html`<label class="field"><span>${label}</span><input
       type="number"
       step=${step}
+      min=${ifDefined(min)}
       ?disabled=${disabled}
       .value=${value === undefined ? "" : String(value)}
       @change=${(e: Event) => {

@@ -37,7 +37,7 @@ export class CeErrorState extends LitElement {
       }
       .text {
         color: var(--ce-muted);
-        max-inline-size: 32ch;
+        max-inline-size: min(60ch, 100%);
       }
       .text ::slotted(p) {
         margin: 0;

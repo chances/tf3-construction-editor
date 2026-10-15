@@ -14,14 +14,23 @@ export class CeProblems extends observer(LitElement) {
         grid-template-rows: auto minmax(0, 1fr);
         min-block-size: 0;
       }
-      header {
+      /* The title sits at one end and its supplement (the chips, or None) at
+        the other. */
+      hgroup {
         align-items: baseline;
         display: flex;
         gap: 0.5rem;
+        justify-content: space-between;
         padding: 0.5rem 0.75rem 0;
       }
-      header h2 {
+      hgroup h2,
+      hgroup .supplement {
         margin: 0;
+      }
+      hgroup .supplement {
+        align-items: baseline;
+        display: flex;
+        gap: 0.5rem;
       }
       .chip {
         align-items: center;
@@ -67,39 +76,39 @@ export class CeProblems extends observer(LitElement) {
     const errors = store.issues.filter((i) => i.severity === "error").length;
     const warnings = store.issues.length - errors;
     return html`
-      <header>
+      <hgroup>
         <h2>Problems</h2>
-        ${errors === 0 && warnings === 0
-          ? html`<span class="muted">None</span>`
-          : html`
-            ${errors > 0
-              ? html`
-                <span
-                  class="chip error"
-                  title=${`${errors} ${errors === 1 ? "Error" : "Errors"}`}
-                >${errorIcon(14)}<span class="count">${errors}</span><span
-                                  class="visually-hidden"
-                                >${errors === 1
-                                  ? "Error"
-                                  : "Errors"}</span></span>
-              `
-              : null}
-            ${warnings > 0
-              ? html`
-                <span
-                  class="chip warning"
-                  title=${`${warnings} ${
-                    warnings === 1 ? "Warning" : "Warnings"
-                  }`}
-                >${warningIcon(14)}<span class="count">${warnings}</span><span
-                                  class="visually-hidden"
-                                >${warnings === 1
-                                  ? "Warning"
-                                  : "Warnings"}</span></span>
-              `
-              : null}
-          `}
-      </header>
+        ${errors === 0 && warnings === 0 ? null : html`
+          <p class="supplement">
+          ${errors > 0
+            ? html`
+              <span
+                class="chip error"
+                title=${`${errors} ${errors === 1 ? "Error" : "Errors"}`}
+              >${errorIcon(14)}<span class="count">${errors}</span><span
+                                class="visually-hidden"
+                              >${errors === 1
+                                ? "Error"
+                                : "Errors"}</span></span>
+            `
+            : null}
+          ${warnings > 0
+            ? html`
+              <span
+                class="chip warning"
+                title=${`${warnings} ${
+                  warnings === 1 ? "Warning" : "Warnings"
+                }`}
+              >${warningIcon(14)}<span class="count">${warnings}</span><span
+                                class="visually-hidden"
+                              >${warnings === 1
+                                ? "Warning"
+                                : "Warnings"}</span></span>
+            `
+            : null}
+          </p>
+        `}
+      </hgroup>
       <div class="body">
         ${outcome?.refused.length
           ? html`

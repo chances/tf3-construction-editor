@@ -3,8 +3,10 @@ import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import {
   ChevronDown,
   CircleAlert,
+  Folder,
   History,
   type IconNode,
+  Image,
   LoaderCircle,
   Plus,
   Redo2,
@@ -54,6 +56,8 @@ export const spinnerIcon = (size = 16) => lucideIcon(LoaderCircle, size);
 export const chevronDownIcon = (size = 16) => lucideIcon(ChevronDown, size);
 export const undoIcon = (size = 16) => lucideIcon(Undo2, size);
 export const redoIcon = (size = 16) => lucideIcon(Redo2, size);
+export const folderIcon = (size = 16) => lucideIcon(Folder, size);
+export const imageIcon = (size = 16) => lucideIcon(Image, size);
 export const historyIcon = (size = 16) => lucideIcon(History, size);
 export const errorIcon = (size = 16) => lucideIcon(CircleAlert, size);
 export const warningIcon = (size = 16) => lucideIcon(TriangleAlert, size);

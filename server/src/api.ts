@@ -7,6 +7,9 @@ import {
 import { type AssetEntry, indexBaseGame } from "./assets.ts";
 import type { ServerConfig } from "./config.ts";
 import { LuaParseError } from "./luatab.ts";
+import { ImageFormatError, UnsupportedImageError } from "./image/types.ts";
+import { clampThumbnailSize, makeThumbnail } from "./image/thumbnail.ts";
+import { buildImageIndex, type ImageEntry, indexBaseImages } from "./images.ts";
 import { MdlError } from "./mdl.ts";
 import { MshError } from "./msh.ts";
 import { openInDefaultApp } from "./open.ts";
@@ -40,8 +43,12 @@ function errorResponse(error: unknown): Response {
   if (error instanceof Deno.errors.NotFound) {
     return json({ error: error.message }, 404);
   }
+  if (error instanceof UnsupportedImageError) {
+    return json({ error: error.message }, 415);
+  }
   if (
     error instanceof MdlError || error instanceof MshError ||
+    error instanceof ImageFormatError ||
     error instanceof LuaParseError ||
     error instanceof ZipError
   ) {
@@ -66,11 +73,23 @@ const ROUTES: { method: string; pattern: URLPattern; name: string }[] = [
   ["POST", "/api/mods/:dir/lint", "lint"],
   ["GET", "/api/mods/:dir/assets", "assets"],
   ["GET", "/api/mods/:dir/model", "model"],
+  ["GET", "/api/mods/:dir/images", "images"],
+  ["GET", "/api/mods/:dir/image", "image"],
 ].map(([method, path, name]) => ({
   method,
   pattern: new URLPattern({ pathname: path }),
   name,
 }));
+
+/** A short stable hash for `ETag` values. */
+function hashText(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16);
+}
 
 /** Creates the config file with `{}` when it is missing. */
 async function ensureConfigFile(path: string): Promise<boolean> {
@@ -93,6 +112,25 @@ export function createHandler(
       ? Promise.resolve([])
       : indexBaseGame(config.installRoot);
   const outlines = new Map<string, Promise<Point2[][] | { error: string }>>();
+
+  let baseImages: Promise<ImageEntry[]> | undefined;
+  const images = () =>
+    baseImages ??= config.installRoot === null
+      ? Promise.resolve([])
+      : indexBaseImages(config.installRoot);
+  /** Encoded thumbnails by archive, entry, and size. Oldest leaves first. */
+  const thumbnails = new Map<string, Uint8Array>();
+  const THUMBNAIL_CACHE = 512;
+
+  async function imageIndexFor(dir: string) {
+    const loaded = await loadMod(config.modsRoot, dir);
+    return await buildImageIndex(
+      await images(),
+      config.modsRoot,
+      dir,
+      loaded.mod,
+    );
+  }
 
   async function indexFor(dir: string) {
     const loaded = await loadMod(config.modsRoot, dir);
@@ -178,8 +216,15 @@ export function createHandler(
         case "lint": {
           const doc: ConstructionDoc = parseConstruction(await req.json());
           const { index } = await indexFor(p.dir);
+          const images = await imageIndexFor(p.dir);
           return json(
-            lintConstruction(doc, { resolveModel: (id) => index.has(id) }),
+            lintConstruction(doc, {
+              resolveModel: (id) => index.has(id),
+              // With no images indexed the game is not set up, so the index
+              // cannot say whether an icon exists.
+              resolveImage: (id) =>
+                images.size === 0 ? null : images.get(id) !== undefined,
+            }),
           );
         }
         case "assets": {
@@ -196,6 +241,77 @@ export function createHandler(
               source: e.source,
               modId: e.modId,
             })),
+          });
+        }
+        case "images": {
+          const index = await imageIndexFor(p.dir);
+          const limit = Math.min(
+            Number(url.searchParams.get("limit") ?? 50),
+            100,
+          );
+          return json({
+            total: index.size,
+            /** True when the query is exactly the id of an indexed image. */
+            exact: index.get((url.searchParams.get("q") ?? "").trim()) !==
+              undefined,
+            folders: index.folders(url.searchParams.get("q") ?? ""),
+            entries: index.search(url.searchParams.get("q") ?? "", limit).map(
+              (e) => ({
+                id: e.id,
+                source: e.source,
+                modId: e.modId,
+                format: e.format,
+              }),
+            ),
+          });
+        }
+        case "image": {
+          const id = url.searchParams.get("id");
+          if (!id) throw new UserError("The id query parameter is required.");
+          const size = clampThumbnailSize(
+            Number(url.searchParams.get("size") ?? 64),
+          );
+          const index = await imageIndexFor(p.dir);
+          const entry = index.get(id);
+          if (!entry) {
+            throw new Deno.errors.NotFound(
+              `The image ${id} is not in the base game, the mod ${p.dir}, or its dependencies.`,
+            );
+          }
+          const key = `${entry.zip ?? ""}|${entry.entry}|${size}`;
+          const tag = `"${hashText(key)}"`;
+          if (req.headers.get("if-none-match") === tag) {
+            return new Response(null, { status: 304 });
+          }
+          let png = thumbnails.get(key);
+          if (png) {
+            thumbnails.delete(key);
+          } else {
+            try {
+              png = await makeThumbnail(
+                await index.readBytes(entry),
+                entry.entry,
+                size,
+              );
+            } catch (error) {
+              if (error instanceof UnsupportedImageError) {
+                throw new UnsupportedImageError(
+                  `The image ${id} cannot be previewed. ${error.message}`,
+                );
+              }
+              throw error;
+            }
+          }
+          thumbnails.set(key, png);
+          if (thumbnails.size > THUMBNAIL_CACHE) {
+            thumbnails.delete(thumbnails.keys().next().value!);
+          }
+          return new Response(png as BodyInit, {
+            headers: {
+              "content-type": "image/png",
+              "cache-control": "max-age=3600",
+              etag: tag,
+            },
           });
         }
         case "model": {

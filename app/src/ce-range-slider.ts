@@ -37,6 +37,7 @@ export class CeRangeSlider extends LitElement {
     low: { state: true },
     high: { state: true },
     editing: { state: true },
+    dragging: { state: true },
   };
   static override styles = [
     sharedStyles,
@@ -147,6 +148,18 @@ export class CeRangeSlider extends LitElement {
         inline-size: 16px;
         pointer-events: auto;
       }
+      /* The thumb keeps the grabbing cursor for the whole drag, even when the
+        pointer leaves it. */
+      input[type="range"]:active::-webkit-slider-thumb {
+        cursor: grabbing;
+      }
+      input[type="range"]:active::-moz-range-thumb {
+        cursor: grabbing;
+      }
+      .slider.dragging,
+      .slider.dragging input[type="range"] {
+        cursor: grabbing;
+      }
       input[type="range"]:focus-visible::-webkit-slider-thumb {
         outline: 2px solid var(--ce-accent, currentColor);
         outline-offset: 2px;
@@ -171,6 +184,8 @@ export class CeRangeSlider extends LitElement {
   declare high: number | null;
   /** The year label that is currently a number box. */
   declare editing: "from" | "to" | null;
+  /** True from a thumb press until the pointer is released. */
+  declare dragging: boolean;
 
   constructor() {
     super();
@@ -185,6 +200,7 @@ export class CeRangeSlider extends LitElement {
     this.low = null;
     this.high = null;
     this.editing = null;
+    this.dragging = false;
   }
 
   /** The stop below the first year. It means "always" (no start bound). */
@@ -219,6 +235,18 @@ export class CeRangeSlider extends LitElement {
     const value = Number((e.target as HTMLInputElement).value);
     if (isHigh) this.high = Math.max(value, this.#low);
     else this.low = Math.min(value, this.#high);
+  }
+
+  /** Marks a thumb drag, ended by the next pointer release anywhere. */
+  #startDragging() {
+    this.dragging = true;
+    const stop = () => {
+      this.dragging = false;
+      removeEventListener("pointerup", stop);
+      removeEventListener("pointercancel", stop);
+    };
+    addEventListener("pointerup", stop);
+    addEventListener("pointercancel", stop);
   }
 
   #emit(from: number, to: number | undefined) {
@@ -348,7 +376,7 @@ export class CeRangeSlider extends LitElement {
         ${this.#yearCell("from", this.#label(low, false))}
         ${this.#yearCell("to", this.#label(high, true))}
       </div>
-      <div class="slider">
+      <div class=${this.dragging ? "slider dragging" : "slider"}>
         <div class="track"></div>
         <div
           class="fill"
@@ -364,6 +392,7 @@ export class CeRangeSlider extends LitElement {
           max=${this.#ceil}
           step="1"
           .value=${String(low)}
+          @pointerdown=${() => this.#startDragging()}
           @input=${(e: Event) => this.#drag(false, e)}
           @change=${(e: Event) => {
             e.stopPropagation();
@@ -378,6 +407,7 @@ export class CeRangeSlider extends LitElement {
           max=${this.#ceil}
           step="1"
           .value=${String(high)}
+          @pointerdown=${() => this.#startDragging()}
           @input=${(e: Event) => this.#drag(true, e)}
           @change=${(e: Event) => {
             e.stopPropagation();

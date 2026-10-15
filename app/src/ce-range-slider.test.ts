@@ -266,6 +266,18 @@ Deno.test("range slider: Escape closes the box and emits nothing", async () => {
   assertEquals(m.events, []);
 });
 
+Deno.test("range slider: a thumb press shows the grabbing state until release", async () => {
+  const m = await mount({ from: 1900, to: 1950 });
+  const slider = () => m.root.querySelector(".slider")!;
+  assert(!slider().classList.contains("dragging"));
+  ranges(m)[0].dispatchEvent(new Event("pointerdown", { bubbles: true }));
+  await m.el.updateComplete;
+  assert(slider().classList.contains("dragging"));
+  globalThis.dispatchEvent(new Event("pointerup"));
+  await m.el.updateComplete;
+  assert(!slider().classList.contains("dragging"));
+});
+
 Deno.test("range slider: no box is a negative year", async () => {
   const m = await mount({ from: 1900 });
   const input = await openBox(m, "from");

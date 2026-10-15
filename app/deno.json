@@ -10,6 +10,7 @@
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
   },
   "imports": {
+    "@happy-dom/global-registrator": "npm:@happy-dom/global-registrator@^14.12.3",
     "lit": "npm:lit@^3.3.3",
     "lucide": "npm:lucide@^1.57.0",
     "mobx": "npm:mobx@^7.0.6",
