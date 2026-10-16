@@ -84,6 +84,10 @@ export const sharedStyles = css`
     outline: 2px solid var(--ce-accent);
     outline-offset: 1px;
   }
+  input[aria-invalid="true"]:focus-visible,
+  textarea[aria-invalid="true"]:focus-visible {
+    outline-color: var(--ce-error);
+  }
   .field {
     display: grid;
     gap: 0.15rem;

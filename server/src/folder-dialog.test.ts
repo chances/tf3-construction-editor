@@ -11,6 +11,7 @@ import {
   mergeConfig,
   parseDialogOutput,
   validateFolder,
+  zenityArgs,
 } from "./folder-dialog.ts";
 import { UserError } from "./mods.ts";
 import { withTempDir } from "./testing.ts";
@@ -82,4 +83,21 @@ Deno.test("folder dialog: the install folder must contain base/content", async (
 
 Deno.test("folder dialog: an encoded script is UTF-16LE base64", () => {
   assertEquals(encodeScript("ab"), btoa("a\0b\0"));
+});
+
+Deno.test("folder dialog: zenity opens a folder picker at the start folder", () => {
+  assertEquals(zenityArgs("Choose Mods Folder", "/home/a/mods"), [
+    "--file-selection",
+    "--directory",
+    "--title=Choose Mods Folder",
+    "--filename=/home/a/mods/",
+  ]);
+});
+
+Deno.test("folder dialog: zenity omits the start folder when none is given", () => {
+  assertEquals(zenityArgs("Choose", undefined), [
+    "--file-selection",
+    "--directory",
+    "--title=Choose",
+  ]);
 });

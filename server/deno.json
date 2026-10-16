@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "exports": "./mod.ts",
   "tasks": {
-    "start": "deno run --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=powershell.exe,explorer.exe,open,xdg-open src/main.ts"
+    "start": "deno run --allow-read --allow-write --allow-env --allow-net=127.0.0.1 --allow-run=powershell.exe,zenity,explorer.exe,open,xdg-open src/main.ts"
   }
 }

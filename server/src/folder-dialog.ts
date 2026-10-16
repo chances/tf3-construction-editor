@@ -4,8 +4,8 @@ import { UserError } from "./mods.ts";
 /**
  * @remarks The native folder dialog runs through PowerShell with an `Add-Type`
  * C# wrapper for `IFileOpenDialog` with `FOS_PICKFOLDERS`, and it opens topmost
- * so the browser does not hide it. It is Windows only. The dialog opens on the
- * server's desktop, which is the user's desktop because the server binds
+ * so the browser does not hide it. On Linux it runs `zenity --file-selection
+ * --directory` (GNOME). The dialog opens on the server's desktop, which is the user's desktop because the server binds
  * `127.0.0.1` only. A cancelled dialog changes nothing. The pure parts
  * (validation, config merge, output parsing) have sibling tests. The dialog
  * itself has none.
@@ -285,18 +285,64 @@ export function encodeScript(script: string): string {
   return btoa(binary);
 }
 
+/** The `zenity` arguments for a folder picker that opens at `start`. */
+export function zenityArgs(title: string, start: string | undefined): string[] {
+  const args = ["--file-selection", "--directory", `--title=${title}`];
+  // A trailing slash makes the dialog open inside the folder, not on it.
+  if (start) args.push(`--filename=${start.replace(/\/*$/, "/")}`);
+  return args;
+}
+
+/**
+ * The GNOME folder dialog, through `zenity`. It exits 1 when cancelled and 5
+ * when it timed out, and both mean nothing was chosen.
+ */
+async function pickFolderLinux(
+  { title, start }: { title: string; start?: string },
+): Promise<string | null> {
+  let output: Deno.CommandOutput;
+  try {
+    output = await new Deno.Command("zenity", {
+      args: zenityArgs(title, start),
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      throw new UserError(
+        "Could not open the folder chooser. It needs zenity, which is not " +
+          "installed. Install zenity, then try again.",
+      );
+    }
+    throw error;
+  }
+  if (output.code === 1 || output.code === 5) return null;
+  if (!output.success) {
+    const detail = new TextDecoder().decode(output.stderr).trim();
+    throw new Error(
+      `The folder chooser failed (exit code ${output.code}).${
+        detail ? ` ${detail}` : ""
+      }`,
+    );
+  }
+  return parseDialogOutput(new TextDecoder().decode(output.stdout));
+}
+
 /**
  * The Windows folder dialog (`IFileOpenDialog` with `FOS_PICKFOLDERS`), run
  * through PowerShell. The dialog opens on the desktop of the user who runs the
  * server, which is the user in front of the app.
  */
-export const pickFolder: FolderPicker = async ({ title, start }) => {
+export const pickFolder: FolderPicker = async (options) => {
+  if (Deno.build.os === "linux") return await pickFolderLinux(options);
   if (Deno.build.os !== "windows") {
     throw new UserError(
       "The folder chooser does not work on this operating system. Edit " +
         "cedit.config.json to set the folder.",
     );
   }
+  const { title, start } = options;
   let output: Deno.CommandOutput;
   try {
     output = await new Deno.Command("powershell.exe", {

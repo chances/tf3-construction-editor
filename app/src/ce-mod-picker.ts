@@ -56,6 +56,15 @@ export class CeModPicker extends observer(LitElement) {
           animation-duration: 3s;
         }
       }
+      /* A span child of the label, so it needs the label rule's weight. */
+      .field > .problem {
+        color: var(--ce-error);
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      input[aria-invalid="true"] {
+        border-color: var(--ce-error);
+      }
       @keyframes spin {
         to {
           transform: rotate(360deg);
@@ -157,15 +166,23 @@ export class CeModPicker extends observer(LitElement) {
 
   #form(canCancel: boolean) {
     const valid = isValidModId(this.modId);
+    // An empty field is not an error yet. Create Mod stays disabled for it.
+    const problem = this.modId !== "" && !valid
+      ? "Use only lowercase letters (a-z), digits (0-9), and underscores (_)."
+      : "";
     return html`
       <form @submit=${this.#create}>
         <h2>New Mod</h2>
         <label class="field"><span>Mod ID (a-z, 0-9, _)</span><input
+            aria-invalid=${problem ? "true" : "false"}
+            aria-describedby=${problem ? "mod-id-problem" : ""}
             .value=${this.modId}
             @input=${(
               e: Event,
             ) => (this.modId = (e.target as HTMLInputElement).value)}
-          /></label>
+          />${problem
+            ? html`<span class="problem" id="mod-id-problem" role="alert">${problem}</span>`
+            : null}</label>
         <label class="field"><span>Name</span><input
             placeholder=${titleCaseId(this.modId)}
             .value=${this.name}
