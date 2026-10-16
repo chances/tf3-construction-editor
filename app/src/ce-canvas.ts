@@ -1,4 +1,5 @@
 import { css, html, LitElement, svg } from "lit";
+import { basename } from "@std/path/posix";
 import { decomposeTransf, type Mat4, transformPoint } from "@cedit/schema";
 import type { MdlSummary } from "./api.ts";
 import { observer } from "./observer.ts";
@@ -395,7 +396,7 @@ export class CeCanvas extends observer(LitElement) {
         }).join("L") + "Z"
       ).join(" ");
       const origin = toWorld(model.transf, [0, 0]);
-      const name = model.id.slice(model.id.lastIndexOf("/") + 1);
+      const name = basename(model.id);
       return svg`
         <g class=${isSel(si, mi) ? "selected" : ""}>
           ${outline ? svg`<path class="outline" d=${outline} />` : null}

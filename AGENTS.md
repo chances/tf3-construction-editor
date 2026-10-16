@@ -37,6 +37,15 @@ Run from the repo root.
 - Scripts that the game loads are Teal (`.tl`), never plain Lua.
 - Members import each other by `name` (`@cedit/schema`), with no `imports`
   entry.
+- Path handling always uses `@std/path/posix` (`basename`, `extname`, `dirname`,
+  `join`), in every member including `./app`, and never a hand-written slice,
+  split, or regex. Model and image names show without folder and extension
+  (`basename(id, extname(id))`). `./app` imports it as `jsr:@std/path@^1` through
+  its `deno.json`, and `@deno/vite-plugin` in `app/vite.config.ts` lets Vite
+  resolve `jsr:` and `npm:` specifiers. The repo has no `package.json`, no
+  `.npmrc`, and no npm install step.
+- Line endings are LF. `.gitattributes` sets `* text=auto eol=lf`, and tests
+  never depend on the line endings of a stored file.
 - Unit tests are sibling `<module>.test.ts` files next to `<module>.ts`.
   Fixtures live in a member's `testdata/` folder.
 - Every heading, every button label, and every field label uses Title Case, in
@@ -54,17 +63,18 @@ Run from the repo root.
   the app and the server search. A game abbreviation in a model name becomes a
   readable chip and never shows raw (`cr_fish` is `Fish` with a `Critter` chip).
   A leading kind word such as `bird` becomes a parenthetical suffix in the title
-  (`bird_crane` is `Crane (Bird)`).
-  Files that differ only by `high`, `low`, `idle`, `open`, `closed`, or `prod`
-  are one model. A name word with no known meaning is logged in
-  `.agents/plans/model-name-tags.md`, not guessed.
+  (`bird_crane` is `Crane (Bird)`). Files that differ only by `high`, `low`,
+  `idle`, `open`, `closed`, or `prod` are one model. A name word with no known
+  meaning is logged in `.agents/plans/model-name-tags.md`, not guessed.
 - Search boxes are keyword search: the query splits on whitespace, every keyword
   must match, and matching ignores case. Chip text and aliases are searchable.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only
   buttons carry a short `title` and a different, descriptive `aria-label` (never
-  equal), deletes confirm in the one modal (`ce-confirm-dialog`), and icons come
+  equal), every delete and removal confirms in the one modal
+  (`ce-confirm-dialog`) whether it removes a construction, a layer, a model, or
+  a mod list entry (author, dependency, incompatibility), and icons come
   from Lucide through `app/src/icons.ts`.
 - Button states and variants live in `app/src/styles.ts`: `button.subtle`
   (transparent at rest, chrome on hover and focus), `cursor: not-allowed` when

@@ -80,14 +80,20 @@ export class CeModDetails extends observer(LitElement) {
   ];
 
   /** Icon-only remove button. The label names the item it removes. */
-  #removeButton(label: string, onClick: () => void) {
+  #removeButton(label: string, name: string, remove: () => void) {
     return html`
       <button
         type="button"
         class="icon-button"
-        aria-label=${`${label}. Removes it from this mod.`}
+        aria-label=${`${label}. Removes it from this mod after you confirm.`}
         title=${label}
-        @click=${onClick}
+        @click=${() =>
+          store.requestRemoval({
+            title: label.split(":")[0],
+            name,
+            note: "This removes it from the mod details.",
+            run: remove,
+          })}
       >${trashIcon()}</button>
     `;
   }
@@ -165,30 +171,36 @@ export class CeModDetails extends observer(LitElement) {
           <h3>Authors</h3>
           ${modInfo.authors.map(
             (a, i) =>
-              html`<div class="item-row author">
-                ${
-                textField(
-                  "Name",
-                  a.name,
-                  (v) =>
-                    store.editMod((_m, info) => (info.authors[i].name = v)),
-                )
-              }
-                ${
-                textField(
-                  "Role",
-                  a.role,
-                  (v) =>
-                    store.editMod((_m, info) => (info.authors[i].role = v)),
-                )
-              }
-                ${
-                this.#removeButton(
-                  `Remove Author: ${a.name || "Unnamed"}`,
-                  () => store.editMod((_m, info) => info.authors.splice(i, 1)),
-                )
-              }
-              </div>`,
+              html`
+                <div class="item-row author">
+                                ${textField(
+                                  "Name",
+                                  a.name,
+                                  (v) =>
+                                    store.editMod((
+                                      _m,
+                                      info,
+                                    ) => (info.authors[i].name = v)),
+                                )}
+                                ${textField(
+                                  "Role",
+                                  a.role,
+                                  (v) =>
+                                    store.editMod((
+                                      _m,
+                                      info,
+                                    ) => (info.authors[i].role = v)),
+                                )}
+                                ${this.#removeButton(
+                                  `Remove Author: ${a.name || "Unnamed"}`,
+                                  a.name || "Unnamed",
+                                  () =>
+                                    store.editMod((_m, info) =>
+                                      info.authors.splice(i, 1)
+                                    ),
+                                )}
+                              </div>
+              `,
           )}
           <button type="button" @click=${() =>
             store.editMod((_m, info) => {
@@ -251,15 +263,16 @@ export class CeModDetails extends observer(LitElement) {
         <h3>${heading}</h3>
         ${ids.map(
           (id, i) =>
-            html`<div class="item-row">
-              ${textField("Mod ID", id, (v) => onEdit(i, v))}
-              ${
-              this.#removeButton(
-                `Remove ${itemLabel}: ${id || "Empty"}`,
-                () => onRemove(i),
-              )
-            }
-            </div>`,
+            html`
+              <div class="item-row">
+                            ${textField("Mod ID", id, (v) => onEdit(i, v))}
+                            ${this.#removeButton(
+                              `Remove ${itemLabel}: ${id || "Empty"}`,
+                              id || "Empty",
+                              () => onRemove(i),
+                            )}
+                          </div>
+            `,
         )}
         <button type="button" @click=${onAdd}>${addLabel}</button>
       </section>

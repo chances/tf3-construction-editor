@@ -1,5 +1,6 @@
 import { css, html, LitElement, type TemplateResult } from "lit";
 import {
+  assetChips,
   decomposeTransf,
   isMenuCategory,
   MENU_CATEGORIES,
@@ -13,6 +14,7 @@ import {
   textAreaField,
   textField,
 } from "./fields.ts";
+import { chipStyles } from "./card-styles.ts";
 import "./ce-folder-field.ts";
 import "./ce-icon-picker.ts";
 import "./ce-range-slider.ts";
@@ -56,6 +58,7 @@ function menuCategoryGroups(current: string) {
 export class CeProperties extends observer(LitElement) {
   static override styles = [
     sharedStyles,
+    chipStyles,
     css`
       /*
       * Every vertical space between components is this one gap. Elements
@@ -177,6 +180,11 @@ export class CeProperties extends observer(LitElement) {
       .id {
         overflow-wrap: anywhere;
       }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+      }
     `,
   ];
 
@@ -234,8 +242,8 @@ export class CeProperties extends observer(LitElement) {
   #model(): TemplateResult {
     const placement = store.selectedPlacement!;
     const t = decomposeTransf(placement.transf);
+    const listing = store.listings.get(placement.id);
     return html`
-      <p class="id muted" title=${placement.id}>${placement.id}</p>
       <div class="cols">
         ${numberField(
           "X (m)",
@@ -273,7 +281,16 @@ export class CeProperties extends observer(LitElement) {
           { label: "Set model tag" },
         );
       })}
-      <button @click=${() => store.removeSelected()}>Remove Item</button>
+      <p class="id muted" title=${placement.id}>${placement.id}</p>
+      ${listing
+        ? html`
+          <div class="chips">
+            ${assetChips(listing, listing.variants).map(
+              (c) => html`<span class="chip ${c.zone ?? ""}">${c.label}</span>`,
+            )}
+          </div>
+        `
+        : null}
     `;
   }
 

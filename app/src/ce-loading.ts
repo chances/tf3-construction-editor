@@ -75,10 +75,14 @@ export class CeLoading extends observer(LitElement) {
         ? html`<ul>${
           tasks.map(
             (t) =>
-              html`<li>
-              <p>${t.text}</p>
-              ${t.note ? html`<p class="note">${t.note}</p>` : null}
-            </li>`,
+              html`
+                <li>
+                              <p>${t.text}</p>
+                              ${t.note
+                                ? html`<p class="note">${t.note}</p>`
+                                : null}
+                            </li>
+              `,
           )
         }</ul>`
         : null}

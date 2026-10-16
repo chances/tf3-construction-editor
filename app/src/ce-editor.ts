@@ -6,7 +6,7 @@ import "./ce-inspector.ts";
 import "./ce-mod-switcher.ts";
 import { redoIcon, trashIcon, undoIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
-import { stem } from "./paths.ts";
+import { basename, extname } from "@std/path/posix";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
@@ -103,7 +103,7 @@ export class CeEditor extends observer(LitElement) {
     const iconLabelChars = Math.max(
       0,
       ...[description?.icon, description?.previewIcon].map((icon) =>
-        stem(icon ?? "").length
+        basename(icon ?? "", extname(icon ?? "")).length
       ),
     );
     return html`

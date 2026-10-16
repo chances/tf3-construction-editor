@@ -1,6 +1,6 @@
 import { css, html, LitElement } from "lit";
 import { assetChips, modelNames } from "@cedit/schema";
-import { cardStyles } from "./card-styles.ts";
+import { cardStyles, chipStyles } from "./card-styles.ts";
 import "./ce-error-state.ts";
 import { spinnerIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
@@ -15,6 +15,7 @@ export class CeAssets extends observer(LitElement) {
   static override styles = [
     sharedStyles,
     cardStyles,
+    chipStyles,
     css`
       :host {
         display: grid;
@@ -50,28 +51,6 @@ export class CeAssets extends observer(LitElement) {
         gap: 0.25rem;
         overflow: visible;
         white-space: normal;
-      }
-      .chip {
-        border: 1px solid var(--ce-muted);
-        border-radius: 999px;
-        color: var(--ce-muted);
-        font-size: 0.75rem;
-        padding-block: 0.05rem;
-        padding-inline: 0.5rem;
-      }
-      .chip.com {
-        color: var(--ce-zone-com);
-      }
-      .chip.ind {
-        color: var(--ce-zone-ind);
-      }
-      .chip.res {
-        color: var(--ce-zone-res);
-      }
-      .chip.com,
-      .chip.ind,
-      .chip.res {
-        border-color: currentColor;
       }
       .choose {
         align-items: center;

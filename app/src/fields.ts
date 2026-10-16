@@ -12,10 +12,12 @@ export function textField(
   value: string,
   onChange: (value: string) => void,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><input
-      .value=${value}
-      @change=${(e: Event) => onChange(inputValue(e))}
-    /></label>`;
+  return html`
+    <label class="field"><span>${label}</span><input
+          .value=${value}
+          @change=${(e: Event) => onChange(inputValue(e))}
+        /></label>
+  `;
 }
 
 export function textAreaField(
@@ -23,11 +25,13 @@ export function textAreaField(
   value: string,
   onChange: (value: string) => void,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><textarea
-      rows="3"
-      .value=${value}
-      @change=${(e: Event) => onChange(inputValue(e))}
-    ></textarea></label>`;
+  return html`
+    <label class="field"><span>${label}</span><textarea
+          rows="3"
+          .value=${value}
+          @change=${(e: Event) => onChange(inputValue(e))}
+        ></textarea></label>
+  `;
 }
 
 export function numberField(
@@ -38,17 +42,20 @@ export function numberField(
   disabled = false,
   min?: number,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><span
-      class="input-suffix"
-    ><ce-spinner
-        fill
-        .label=${label}
-        .step=${step === "any" ? null : Number(step)}
-        .min=${min}
-        .value=${value}
-        ?disabled=${disabled}
-        @change=${(e: CustomEvent<SpinnerChange>) => onChange(e.detail.value)}
-      ></ce-spinner></span></label>`;
+  return html`
+    <label class="field"><span>${label}</span><span
+          class="input-suffix"
+        ><ce-spinner
+            fill
+            .label=${label}
+            .step=${step === "any" ? null : Number(step)}
+            .min=${min}
+            .value=${value}
+            ?disabled=${disabled}
+            @change=${(e: CustomEvent<SpinnerChange>) =>
+              onChange(e.detail.value)}
+          ></ce-spinner></span></label>
+  `;
 }
 
 /**
@@ -62,27 +69,28 @@ export function clearableNumberField(
   clearLabel: string,
   step = 1,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><span
-      class="input-suffix"
-    ><ce-spinner
-        .label=${label}
-        .step=${step}
-        .value=${value}
-        @change=${(e: CustomEvent<SpinnerChange>) => onChange(e.detail.value)}
-      ></ce-spinner>${
-    value === undefined ? null : html`
-      <button
-        type="button"
-        class="icon"
-        aria-label=${`${clearLabel}: empties the ${label} field`}
-        title=${clearLabel}
-        @click=${(e: Event) => {
-          e.preventDefault();
-          onChange(undefined);
-        }}
-      >${xIcon(14)}</button>
-    `
-  }</span></label>`;
+  return html`
+    <label class="field"><span>${label}</span><span
+          class="input-suffix"
+        ><ce-spinner
+            .label=${label}
+            .step=${step}
+            .value=${value}
+            @change=${(e: CustomEvent<SpinnerChange>) =>
+              onChange(e.detail.value)}
+          ></ce-spinner>${value === undefined ? null : html`
+            <button
+              type="button"
+              class="icon"
+              aria-label=${`${clearLabel}: empties the ${label} field`}
+              title=${clearLabel}
+              @click=${(e: Event) => {
+                e.preventDefault();
+                onChange(undefined);
+              }}
+            >${xIcon(14)}</button>
+          `}</span></label>
+  `;
 }
 
 export function checkboxField(
@@ -90,11 +98,14 @@ export function checkboxField(
   value: boolean,
   onChange: (value: boolean) => void,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><input
-      type="checkbox"
-      .checked=${value}
-      @change=${(e: Event) => onChange((e.target as HTMLInputElement).checked)}
-    /></label>`;
+  return html`
+    <label class="field"><span>${label}</span><input
+          type="checkbox"
+          .checked=${value}
+          @change=${(e: Event) =>
+            onChange((e.target as HTMLInputElement).checked)}
+        /></label>
+  `;
 }
 
 export interface FieldOption {
@@ -109,19 +120,19 @@ export function groupedSelectField(
   groups: readonly { label: string; options: readonly FieldOption[] }[],
   onChange: (value: string) => void,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><select
-      @change=${(e: Event) => onChange(inputValue(e))}
-    >${
-    groups.map((g) =>
-      html`<optgroup label=${g.label}>${
-        g.options.map((o) =>
-          html`<option value=${o.value} .selected=${
-            o.value === value
-          }>${o.label}</option>`
-        )
-      }</optgroup>`
-    )
-  }</select></label>`;
+  return html`
+    <label class="field"><span>${label}</span><select
+          @change=${(e: Event) => onChange(inputValue(e))}
+        >${groups.map((g) =>
+          html`<optgroup label=${g.label}>${
+            g.options.map((o) =>
+              html`<option value=${o.value} .selected=${
+                o.value === value
+              }>${o.label}</option>`
+            )
+          }</optgroup>`
+        )}</select></label>
+  `;
 }
 
 export function selectField<T extends string>(
@@ -130,9 +141,11 @@ export function selectField<T extends string>(
   options: readonly T[],
   onChange: (value: T) => void,
 ): TemplateResult {
-  return html`<label class="field"><span>${label}</span><select
-      @change=${(e: Event) => onChange(inputValue(e) as T)}
-    >${
-    options.map((o) => html`<option .selected=${o === value}>${o}</option>`)
-  }</select></label>`;
+  return html`
+    <label class="field"><span>${label}</span><select
+          @change=${(e: Event) => onChange(inputValue(e) as T)}
+        >${options.map((o) =>
+          html`<option .selected=${o === value}>${o}</option>`
+        )}</select></label>
+  `;
 }

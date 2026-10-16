@@ -10,6 +10,9 @@
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
   },
   "imports": {
+    "@deno/vite-plugin": "npm:@deno/vite-plugin@^2.0.0",
+    "@std/path": "jsr:@std/path@^1.1.6",
+    "@std/path/posix": "jsr:@std/path@^1.1.6/posix",
     "@happy-dom/global-registrator": "npm:@happy-dom/global-registrator@^14.12.3",
     "lit": "npm:lit@^3.3.3",
     "lucide": "npm:lucide@^1.57.0",

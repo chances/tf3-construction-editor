@@ -8,7 +8,7 @@ import { sharedStyles } from "./styles.ts";
 const MODEL = nounForms("model");
 
 /**
- * The app's one modal. It asks before a construction or layer is deleted: it
+ * The app's one modal. It asks before a construction, layer, model, or mod list entry is deleted: it
  * names the item, says what is removed, and puts focus on the safe choice.
  * It also reports an unreachable server. `Escape` and Cancel dismiss it. A
  * click on the backdrop or on empty space does nothing.
@@ -69,7 +69,7 @@ export class CeConfirmDialog extends observer(LitElement) {
     const dialog = this.renderRoot.querySelector("dialog");
     if (!dialog) return;
     const wanted = store.serverUnreachable || store.pendingDelete !== null ||
-      store.pendingLayerDelete !== null;
+      store.pendingLayerDelete !== null || store.pendingRemoval !== null;
     if (wanted && !dialog.open) dialog.showModal();
     else if (!wanted && dialog.open) dialog.close();
   }
@@ -77,6 +77,7 @@ export class CeConfirmDialog extends observer(LitElement) {
   override render() {
     const target = store.pendingDelete;
     const layer = store.pendingLayerDelete;
+    const removal = store.pendingRemoval;
     return html`
       <dialog
         aria-labelledby="title"
@@ -105,6 +106,20 @@ export class CeConfirmDialog extends observer(LitElement) {
               </button>
               <button class="primary" @click=${() => store.retryServer()}>
                 Retry
+              </button>
+            </div>
+          `
+          : removal
+          ? html`
+            <h2 id="title">${removal.title}</h2>
+            <p id="body">Remove <strong>${removal.name}</strong>?</p>
+            <p class="muted">${removal.note}</p>
+            <div class="actions">
+              <button autofocus @click=${() => store.cancelDelete()}>
+                Cancel
+              </button>
+              <button class="danger" @click=${() => store.confirmRemoval()}>
+                Remove
               </button>
             </div>
           `

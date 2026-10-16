@@ -76,3 +76,29 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 `;
+
+/** The asset tag pills shown on a model card and in the properties pane. */
+export const chipStyles = css`
+  .chip {
+    border: 1px solid var(--ce-muted);
+    border-radius: 999px;
+    color: var(--ce-muted);
+    font-size: 0.75rem;
+    padding-block: 0.05rem;
+    padding-inline: 0.5rem;
+  }
+  .chip.com {
+    color: var(--ce-zone-com);
+  }
+  .chip.ind {
+    color: var(--ce-zone-ind);
+  }
+  .chip.res {
+    color: var(--ce-zone-res);
+  }
+  .chip.com,
+  .chip.ind,
+  .chip.res {
+    border-color: currentColor;
+  }
+`;

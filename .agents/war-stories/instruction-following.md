@@ -35,10 +35,31 @@ with the instruction and what was done instead.
 | Cause       | A question about a gap in a file was answered as a yes or no question, and the small edit was held for a confirmation nobody had asked for. |
 | Fix         | Rows for `f`, `n`, `t`, `x`, and `d` were added to the doc. A rule was added to the global `CLAUDE.md`.                                     |
 
+## 2026-10-16: Path Helpers Instead of the Standard Library
+
+| Part        | Detail                                                                                                                                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instruction | "This function is redundant. We already have base name and path functions in the standard library!" (a FIXME in `ce-scene.ts`), then "Always use the standard library path functions everywhere in the app."                                |
+| Asked for   | Every path operation in `./app` calls `@std/path/posix`, and no local path helper exists.                                                                                                                                                   |
+| Done        | The FIXME was answered with `stem` from the hand-written `app/src/paths.ts`. The next attempt added the `@jsr/std__path` npm mirror, an `.npmrc`, and a Vite alias. The user said the app does not use npm.                                 |
+| Cause       | An account-level note said Vite cannot resolve `jsr:`, so a local helper plus a std-comparison test was the fix. The real fix is `@deno/vite-plugin`. A session before this one had already written the helpers from that note.             |
+| Fix         | `@std/path` is a `jsr:` import in `app/deno.json`, `@deno/vite-plugin` is in `app/vite.config.ts`, `basename` and `extname` are imported at every call site, and `.npmrc` is gone. The AGENTS.md rules say so, and the stale note is fixed. |
+
+## 2026-10-16: Distill Session Skipped the Sibling CSV
+
+| Part        | Detail                                                                                                                                                                                                                           |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instruction | `/distill-session`, which writes a project case study and follows the directory's existing structure. The directory pairs each prose file with a sibling `.csv` log.                                                              |
+| Asked for   | Both layers in full: personal memory and project files, and for the project log both the `.md` case and the `.csv` row for every incident in the session.                                                                       |
+| Done        | The `.md` case was written and the `.csv` row was left out. After the user named the file, the row was appended with a Bash `printf` and covered one incident. The missing delete confirmation and the unsaved rules had no rows. |
+| Cause       | The skill's report was treated as done once the prose existed. The directory's sibling-file pattern was not checked, and only the incident named last was logged.                                                                |
+| Fix         | `instruction-following.csv` has rows for all three incidents, written with Edit. The repeat is logged in `skill-checklist-discipline.csv` in the account-level topics.                                                            |
+
 ## Pattern
 
 - A named target gets changed along with its neighbors.
-- A new thing is built where an existing one covers the request.
+- A new thing is built where an existing one covers the request. The path
+  helpers were written twice in place of `@std/path`.
 - A property is set and the property next to it is never read back.
 - Wide tools (`preview_stop`) are used for narrow instructions.
 - One field regresses on several rounds because each fix is checked against its

@@ -128,8 +128,10 @@ export class CeProblems extends observer(LitElement) {
           : html`<ul>${
             store.issues.map(
               (i) =>
-                html`<li class=${i.severity}><strong>${i.severity}</strong>
-                ${i.path}: ${i.message}</li>`,
+                html`
+                  <li class=${i.severity}><strong>${i.severity}</strong>
+                                  ${i.path}: ${i.message}</li>
+                `,
             )
           }</ul>`}
       </div>

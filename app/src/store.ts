@@ -4,6 +4,7 @@ import {
   type ConstructionDoc,
   decomposeTransf,
   type Issue,
+  modelNames,
   type ModInfoJson,
   type ModJson,
   newSubconstruction,
@@ -71,6 +72,8 @@ export class EditorStore {
   /** The model id the eyedropper picked, highlighted in the Assets browser. */
   pickedAssetId: string | null = null;
   summaries = new Map<string, MdlSummary>();
+  /** The asset listing of each placed model id, which gives its asset tags. */
+  listings = new Map<string, AssetListing>();
   issues: Issue[] = [];
   exportOutcome: ExportOutcome | null = null;
   message = "";
@@ -97,6 +100,13 @@ export class EditorStore {
   /** The layer waiting for the user to confirm its deletion. */
   pendingLayerDelete: { sub: number; name: string; models: number } | null =
     null;
+  /** A model or mod list entry waiting for the user to confirm its removal. */
+  pendingRemoval: {
+    title: string;
+    name: string;
+    note: string;
+    run: () => void;
+  } | null = null;
   /** True once saved state has been restored. Persistence waits for it. */
   ready = false;
   /** What the loading page says the app is doing, such as "Opening Playground". */
@@ -609,6 +619,32 @@ export class EditorStore {
   cancelDelete() {
     this.pendingDelete = null;
     this.pendingLayerDelete = null;
+    this.pendingRemoval = null;
+  }
+
+  /** Opens the confirmation for removing one entry. `run` does the removal. */
+  requestRemoval(
+    removal: { title: string; name: string; note: string; run: () => void },
+  ) {
+    this.pendingRemoval = removal;
+  }
+
+  confirmRemoval() {
+    const removal = this.pendingRemoval;
+    this.pendingRemoval = null;
+    removal?.run();
+  }
+
+  /** Opens the removal confirmation for a model on a layer. */
+  requestRemoveModel(sub: number, model: number) {
+    const placement = this.doc?.subconstructions[sub]?.models[model];
+    if (!placement) return;
+    this.requestRemoval({
+      title: "Remove Model",
+      name: modelNames(placement.id).title,
+      note: "Undo brings the item back.",
+      run: () => this.removeModel(sub, model),
+    });
   }
 
   /** Opens the delete confirmation for a layer. A construction keeps one. */
@@ -717,6 +753,7 @@ export class EditorStore {
             "Loading model outlines",
             (update) => this.#loadSummaries(update),
           ),
+          this.#task("Loading model tags", () => this.#loadListings()),
           this.#task("Checking for problems", () => this.#runLint()),
           this.assets.length === 0
             ? this.#task(
@@ -750,6 +787,26 @@ export class EditorStore {
         runInAction(() => this.summaries.set(id, summary));
       } catch {
         // An unresolved id shows up in the lint panel.
+      }
+    }
+  }
+
+  /** Finds the listing of every placed model, from the results or the index. */
+  async #loadListings() {
+    if (!this.doc) return;
+    const ids = new Set(
+      this.doc.subconstructions.flatMap((s) => s.models.map((m) => m.id)),
+    );
+    for (const id of ids) {
+      if (this.listings.has(id)) continue;
+      try {
+        const listing = this.assets.find((a) => a.variants.includes(id)) ??
+          (await api.assets(this.dir, id, 20)).entries.find((a) =>
+            a.variants.includes(id)
+          );
+        if (listing) runInAction(() => this.listings.set(id, listing));
+      } catch {
+        // A model without a listing shows no tags.
       }
     }
   }
@@ -942,7 +999,7 @@ export class EditorStore {
     this.selection = { sub: subIndex, model: models.length - 1 };
     const prefixAt = id.indexOf("::");
     if (prefixAt > 0) this.#ensureDependency(id.slice(0, prefixAt));
-    await this.#loadSummaries();
+    await Promise.all([this.#loadSummaries(), this.#loadListings()]);
   }
 
   /** Selects a model, or clears the selection and shows the construction. */
@@ -962,10 +1019,18 @@ export class EditorStore {
   removeSelected() {
     const s = this.selection;
     if (!s) return;
+    this.requestRemoveModel(s.sub, s.model);
+  }
+
+  /** Removes one model from a layer and keeps the selection on the same model. */
+  removeModel(sub: number, model: number) {
+    const s = this.selection;
     this.edit((doc) => {
-      doc.subconstructions[s.sub].models.splice(s.model, 1);
+      doc.subconstructions[sub].models.splice(model, 1);
     }, { label: "Remove model" });
-    this.selection = null;
+    if (s?.sub !== sub) return;
+    if (s.model === model) this.selection = null;
+    else if (s.model > model) this.selection = { sub, model: s.model - 1 };
   }
 
   addSubconstruction() {

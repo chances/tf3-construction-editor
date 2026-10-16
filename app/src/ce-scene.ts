@@ -2,12 +2,9 @@ import { css, html, LitElement } from "lit";
 import "./ce-toggle-button.ts";
 import { trashIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
+import { modelNames } from "@cedit/schema";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
-
-function baseName(id: string): string {
-  return id.slice(id.lastIndexOf("/") + 1);
-}
 
 /** Scene tree: the construction, its layers, and the models on each layer. */
 export class CeScene extends observer(LitElement) {
@@ -157,11 +154,11 @@ export class CeScene extends observer(LitElement) {
                         )}
                         @click=${() => store.selectLayer(si)}
                       >
-                        <span class="name">${sub.label ??
-                          `Layer ${si + 1}`}</span>${sub.tag !== undefined
-                          ? html`<span class="tag" title="Tag ${sub.tag}">${sub.tag}</span>`
-                          : null}
-                      </button>
+                          <span class="name">${sub.label ??
+                            `Layer ${si + 1}`}</span>${sub.tag !== undefined
+                            ? html`<span class="tag" title="Tag ${sub.tag}">${sub.tag}</span>`
+                            : null}
+                        </button>
                       <ce-toggle-button
                         variant="icon subtle"
                         icon=${sub.hidden ? "eye-closed" : "eye"}
@@ -184,24 +181,48 @@ export class CeScene extends observer(LitElement) {
                           sub.label ?? `Layer ${si + 1}`
                         } after you confirm`}
                         @click=${() => store.requestDeleteLayer(si)}
-                      >${trashIcon(12)}</button>
+                      >
+                        ${trashIcon(12)}
+                      </button>
                     </div>
                     <ul>
-                                        ${sub.models.map(
-                                          (m, mi) =>
-                                            html`<li><button
-                          class="item"
-                          title=${m.id}
-                          aria-current=${
-                                              String(
-                                                store.selection?.sub === si &&
-                                                  store.selection.model === mi,
-                                              )
-                                            }
-                          @click=${() => store.select({ sub: si, model: mi })}
-                        >${baseName(m.id)}</button></li>`,
-                                        )}
-                                      </ul>
+                      ${sub.models.map(
+                        (m, mi) =>
+                          html`
+                            <li>
+                              <div class="row">
+                                <button
+                                  class="item"
+                                  title=${m.id}
+                                  aria-current=${String(
+                                    store.selection?.sub === si &&
+                                      store.selection.model === mi,
+                                  )}
+                                  @click=${() =>
+                                    store.select({
+                                      sub: si,
+                                      model: mi,
+                                    })}
+                                >
+                                  ${modelNames(m.id).title}
+                                </button>
+                                <button
+                                  type="button"
+                                  class="subtle delete"
+                                  title="Remove Model"
+                                  aria-label=${`Remove the ${
+                                    modelNames(m.id).title
+                                  } model from the layer after you confirm`}
+                                  @click=${() =>
+                                    store.requestRemoveModel(si, mi)}
+                                >
+                                  ${trashIcon(12)}
+                                </button>
+                              </div>
+                            </li>
+                          `,
+                      )}
+                    </ul>
                   </li>
                 `,
             )}

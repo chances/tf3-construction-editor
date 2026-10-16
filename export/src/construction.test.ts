@@ -5,7 +5,11 @@ import { buildConLua, buildScriptTl } from "./construction.ts";
 const testdata = new URL("../testdata/", import.meta.url);
 
 function readText(name: string): string {
-  return Deno.readTextFileSync(new URL(name, testdata));
+  // A git checkout may convert the stored files to CRLF.
+  return Deno.readTextFileSync(new URL(name, testdata)).replaceAll(
+    "\r\n",
+    "\n",
+  );
 }
 
 function loadSample() {
