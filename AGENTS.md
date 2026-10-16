@@ -76,6 +76,10 @@ Run from the repo root.
   (`ce-confirm-dialog`) whether it removes a construction, a layer, a model, or
   a mod list entry (author, dependency, incompatibility), and icons come
   from Lucide through `app/src/icons.ts`.
+- A control that almost fits a new need is generalized with a prop, never
+  copied: `ce-range-slider` serves years and the Z band through `step`,
+  `openStart`, and `openIcon`. A control used in a vertically tight place (the
+  canvas toolbar) takes `variant` (`normal` by default, `compact` for one line).
 - Button states and variants live in `app/src/styles.ts`: `button.subtle`
   (transparent at rest, chrome on hover and focus), `cursor: not-allowed` when
   disabled, and a 160 ms color transition. Textareas resize vertically only with

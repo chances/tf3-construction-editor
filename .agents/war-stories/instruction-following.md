@@ -55,6 +55,26 @@ with the instruction and what was done instead.
 | Cause       | The skill's report was treated as done once the prose existed. The directory's sibling-file pattern was not checked, and only the incident named last was logged.                                                                |
 | Fix         | `instruction-following.csv` has rows for all three incidents, written with Edit. The repeat is logged in `skill-checklist-discipline.csv` in the account-level topics.                                                            |
 
+## 2026-10-16: Second Range Slider for the Z Band
+
+| Part        | Detail                                                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Instruction | A FIXME in `ce-canvas.ts`: replace the Z band number inputs with a range slider. Then: "Never reinvent the wheel."                                                                                                                   |
+| Asked for   | The existing `ce-range-slider` serves the Z band, and the toolbar sits in its own `ce-canvas-toolbar` component.                                                                                                                      |
+| Done        | The agent planned a second slider inside the toolbar because `ce-range-slider` assumed years. It then saved a memory that credited the user's remark and left out the agent's own plan, and the user called that passive-aggressive. The first toolbar wrapped the Z band onto three lines, found only when a screenshot was requested. |
+| Cause       | The component was not checked for a way to generalize it before a new one was planned. The unstyled `controls__group` div was never opened in the browser.                                                                            |
+| Fix         | `ce-range-slider` takes `step`, `openStart`, `openIcon`, and `variant`. The toolbar groups are flex rows. The memory states the agent's act. The rules are in the account-level topics and in AGENTS.md.                               |
+
+## 2026-10-16: Toolbar Group Labels
+
+| Part        | Detail                                                                                                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Instruction | Make the toolbar group labels distinct from the controls: plain label, semi-bold, different background, inline-end border. Then: inconsistent padding, fill the band height, no margin to the toolbar, matching widths when wrapped. |
+| Asked for   | Labels that fill their bands, touch the container edge, share one padding, share one width while wrapped, and carry a block-end border only above a wrapped band.                                                                        |
+| Done        | Icon names were first looked up with a WebFetch of a CDN listing and the user rejected it for the Context7 tools. The first label styling set only a background and a border and was judged from a screenshot.                              |
+| Cause       | The visible edges, heights, and widths were not measured in the running page before reporting, and the docs MCP tools were not tried first.                                                                                             |
+| Fix         | `ce-canvas-toolbar` has full-height flush labels, a `wrapped` class set by a `ResizeObserver`, and a `--label-size` variable. The rules are in the account-level `ux-guidelines/layout.md`.                                              |
+
 ## Pattern
 
 - A named target gets changed along with its neighbors.

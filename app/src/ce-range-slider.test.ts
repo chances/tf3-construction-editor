@@ -278,6 +278,23 @@ Deno.test("range slider: a thumb press shows the grabbing state until release", 
   assert(!slider().classList.contains("dragging"));
 });
 
+Deno.test("range slider: a Z band has fractional steps, negative values, and an undefined open start", async () => {
+  const m = await mount();
+  m.el.min = -5;
+  m.el.max = 5;
+  m.el.step = 0.1;
+  m.el.openStart = undefined;
+  m.el.from = undefined;
+  await m.el.updateComplete;
+  const [low, high] = ranges(m);
+  assertEquals([low.min, low.max, low.step], ["-5.1", "5.1", "0.1"]);
+  assertEquals([low.value, high.value], ["-5.1", "5.1"]);
+  await release(m, low, -2.5);
+  assertEquals(m.events, [{ from: -2.5, to: undefined }]);
+  await release(m, low, -5.1);
+  assertEquals(m.events[1], { from: undefined, to: undefined });
+});
+
 Deno.test("range slider: no box is a negative year", async () => {
   const m = await mount({ from: 1900 });
   const input = await openBox(m, "from");

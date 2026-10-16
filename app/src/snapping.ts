@@ -26,7 +26,7 @@ export interface SnapResult {
 }
 
 export function defaultSnap(): SnapSettings {
-  return { grid: 1, vertex: true, edge: true, angle: 15 };
+  return { grid: 0.5, vertex: true, edge: true, angle: 15 };
 }
 
 export function snapToGrid(value: number, step: number): number {

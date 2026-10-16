@@ -368,7 +368,7 @@ export class CeProperties extends observer(LitElement) {
           toLabel="Year To"
           @change=${(e: CustomEvent<RangeChange>) =>
             store.edit((d) => {
-              d.availability.yearFrom = e.detail.from;
+              d.availability.yearFrom = e.detail.from ?? 0;
               d.availability.yearTo = e.detail.to;
             })}
         ></ce-range-slider>

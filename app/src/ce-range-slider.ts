@@ -11,25 +11,31 @@ const rail = (percent: number) =>
   `calc(8px + (100% - 16px) * ${percent / 100})`;
 
 export interface RangeChange {
-  /** `0` when the start thumb sits at the minimum stop. */
-  from: number;
+  /** `openStart` when the start thumb sits at the minimum stop. */
+  from: number | undefined;
   /** `undefined` when the end thumb sits at the maximum stop (forever). */
   to: number | undefined;
 }
 
 /**
- * Two-thumb range slider over the whole years `min..max`. One stop below `min`
- * is the start label ("always") and reports `from: 0`. One stop above `max` is
- * labelled `foreverLabel` and reports `to: undefined`, so a range can run
- * forever from its start. Fires `change` with a `RangeChange` detail when a
- * thumb is released.
+ * Two-thumb range slider over the values `min..max` in steps of `step`. It
+ * serves years (`step` 1, `openStart` 0) and the canvas Z band. One stop below
+ * `min` is the start label ("always") and reports `from: openStart`. One stop
+ * above `max` is labelled `foreverLabel` and reports `to: undefined`, so a
+ * range can run forever from its start. `variant="compact"` lays the labels
+ * and the rail on one line for vertically tight places. Fires `change` with a `RangeChange`
+ * detail when a thumb is released.
  */
 export class CeRangeSlider extends LitElement {
   static override properties = {
     min: { type: Number },
     max: { type: Number },
+    step: { type: Number },
     from: { type: Number },
     to: { type: Number },
+    openStart: { attribute: false },
+    openIcon: { attribute: false },
+    variant: { reflect: true },
     startLabel: { type: String },
     foreverLabel: { type: String },
     fromLabel: { type: String },
@@ -44,6 +50,25 @@ export class CeRangeSlider extends LitElement {
     css`
       :host {
         display: block;
+      }
+      /* Compact fits one line: the start label, the rail, then the end label. */
+      :host([variant="compact"]) {
+        align-items: center;
+        display: grid;
+        gap: 0.25rem;
+        grid-template-columns: auto minmax(6rem, 1fr) auto;
+      }
+      :host([variant="compact"]) .readout {
+        display: contents;
+      }
+      :host([variant="compact"]) .readout > :last-child {
+        order: 2;
+      }
+      :host([variant="compact"]) .slider {
+        order: 1;
+      }
+      :host([variant="compact"]) .year-edit input[type="number"] {
+        inline-size: 5.5rem;
       }
       .readout {
         align-items: center;
@@ -173,8 +198,15 @@ export class CeRangeSlider extends LitElement {
 
   declare min: number;
   declare max: number;
-  declare from: number;
+  declare step: number;
+  declare from: number | undefined;
   declare to: number | undefined;
+  /** The `from` value that means no start bound. */
+  declare openStart: number | undefined;
+  /** Icon drawn on the box button that clears a bound. */
+  declare openIcon: (size?: number) => unknown;
+  /** `compact` puts both labels and the rail on one line. */
+  declare variant: "normal" | "compact";
   declare startLabel: string;
   declare foreverLabel: string;
   declare fromLabel: string;
@@ -191,8 +223,12 @@ export class CeRangeSlider extends LitElement {
     super();
     this.min = 0;
     this.max = 100;
+    this.step = 1;
     this.from = 0;
     this.to = undefined;
+    this.openStart = 0;
+    this.openIcon = historyIcon;
+    this.variant = "normal";
     this.startLabel = "Start";
     this.foreverLabel = "Forever";
     this.fromLabel = "From";
@@ -203,19 +239,26 @@ export class CeRangeSlider extends LitElement {
     this.dragging = false;
   }
 
-  /** The stop below the first year. It means "always" (no start bound). */
-  get #floor(): number {
-    return this.min - 1;
+  /** Strips floating point noise from a stop such as `0.1 + 0.2`. */
+  #round(value: number): number {
+    return Number(value.toFixed(6));
   }
 
-  /** The stop above the last year. It means "forever" (no end bound). */
+  /** The stop below the first value. It means "always" (no start bound). */
+  get #floor(): number {
+    return this.#round(this.min - this.step);
+  }
+
+  /** The stop above the last value. It means "forever" (no end bound). */
   get #ceil(): number {
-    return this.max + 1;
+    return this.#round(this.max + this.step);
   }
 
   get #low(): number {
     if (this.low !== null) return this.low;
-    if (this.from <= 0) return this.#floor;
+    if (this.from === undefined || this.from === this.openStart) {
+      return this.#floor;
+    }
     return Math.min(Math.max(this.from, this.min), this.max);
   }
 
@@ -249,7 +292,7 @@ export class CeRangeSlider extends LitElement {
     addEventListener("pointercancel", stop);
   }
 
-  #emit(from: number, to: number | undefined) {
+  #emit(from: number | undefined, to: number | undefined) {
     this.dispatchEvent(
       new CustomEvent<RangeChange>("change", {
         detail: { from, to },
@@ -263,6 +306,8 @@ export class CeRangeSlider extends LitElement {
     const next = applyTypedYear({ from: this.from, to: this.to }, side, raw, {
       min: this.min,
       max: this.max,
+      step: this.step,
+      openStart: this.openStart,
     });
     if (next.from !== this.from || next.to !== this.to) {
       this.#emit(next.from, next.to);
@@ -286,7 +331,7 @@ export class CeRangeSlider extends LitElement {
       `;
     }
     const value = side === "from"
-      ? String(this.from)
+      ? this.from === undefined ? "" : String(this.from)
       : this.to === undefined
       ? ""
       : String(this.to);
@@ -311,12 +356,12 @@ export class CeRangeSlider extends LitElement {
             this.#stopEditing();
             this.#commitTyped(side, "");
           }}
-        >${historyIcon(14)}</button>
+        >${this.openIcon(14)}</button>
         <input
           type="number"
           min=${this.min}
           max=${this.max}
-          step="1"
+          step=${this.step}
           aria-label=${side === "from" ? this.fromLabel : this.toLabel}
           placeholder=${side === "to" ? this.foreverLabel : ""}
           .value=${value}
@@ -355,7 +400,7 @@ export class CeRangeSlider extends LitElement {
     this.low = null;
     this.high = null;
     const detail: RangeChange = {
-      from: low <= this.#floor ? 0 : low,
+      from: low <= this.#floor ? this.openStart : low,
       to: high >= this.#ceil ? undefined : high,
     };
     this.dispatchEvent(
@@ -392,7 +437,7 @@ export class CeRangeSlider extends LitElement {
           aria-valuetext=${this.#label(low, false)}
           min=${this.#floor}
           max=${this.#ceil}
-          step="1"
+          step=${this.step}
           .value=${String(low)}
           @pointerdown=${() => this.#startDragging()}
           @input=${(e: Event) => this.#drag(false, e)}
@@ -407,7 +452,7 @@ export class CeRangeSlider extends LitElement {
           aria-valuetext=${this.#label(high, true)}
           min=${this.#floor}
           max=${this.#ceil}
-          step="1"
+          step=${this.step}
           .value=${String(high)}
           @pointerdown=${() => this.#startDragging()}
           @input=${(e: Event) => this.#drag(true, e)}

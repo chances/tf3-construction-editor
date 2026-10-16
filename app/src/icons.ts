@@ -1,19 +1,26 @@
 import { html, type TemplateResult } from "lit";
 import { unsafeSVG } from "lit/directives/unsafe-svg.js";
 import {
+  Angle,
+  ArrowUpDown,
   ChevronDown,
   ChevronUp,
   CircleAlert,
+  CircleDot,
   Eye,
   EyeClosed,
   Folder,
+  Grid3x3,
   History,
   type IconNode,
   Image,
+  Infinity as InfinityNode,
   LoaderCircle,
+  Magnet,
   Pipette,
   Plus,
   Redo2,
+  Slash,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -66,6 +73,13 @@ export const redoIcon = (size = 16) => lucideIcon(Redo2, size);
 export const folderIcon = (size = 16) => lucideIcon(Folder, size);
 export const imageIcon = (size = 16) => lucideIcon(Image, size);
 export const historyIcon = (size = 16) => lucideIcon(History, size);
+export const infinityIcon = (size = 16) => lucideIcon(InfinityNode, size);
+export const magnetIcon = (size = 16) => lucideIcon(Magnet, size);
+export const gridIcon = (size = 16) => lucideIcon(Grid3x3, size);
+export const vertexIcon = (size = 16) => lucideIcon(CircleDot, size);
+export const edgeIcon = (size = 16) => lucideIcon(Slash, size);
+export const angleIcon = (size = 16) => lucideIcon(Angle, size);
+export const zBandIcon = (size = 16) => lucideIcon(ArrowUpDown, size);
 export const errorIcon = (size = 16) => lucideIcon(CircleAlert, size);
 export const warningIcon = (size = 16) => lucideIcon(TriangleAlert, size);
 export const eyeIcon = (size = 16) => lucideIcon(Eye, size);

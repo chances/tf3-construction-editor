@@ -4,8 +4,6 @@ import { decomposeTransf, type Mat4, transformPoint } from "@cedit/schema";
 import type { MdlSummary } from "./api.ts";
 import { observer } from "./observer.ts";
 import {
-  ANGLE_STEPS,
-  GRID_STEPS,
   type Segment,
   snapAngle,
   snapMove,
@@ -14,6 +12,7 @@ import {
 } from "./snapping.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
+import "./ce-canvas-toolbar.ts";
 import "./ce-empty-state.ts";
 import { surfaceIllustration } from "./illustrations.ts";
 
@@ -173,29 +172,6 @@ export class CeCanvas extends observer(LitElement) {
         stroke-width: 2;
         vector-effect: non-scaling-stroke;
       }
-      .toolbar {
-        align-items: center;
-        z-index: 1;
-        background: var(--ce-surface);
-        border: 1px solid var(--ce-border);
-        border-radius: 6px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        inset-block-start: 0.5rem;
-        inset-inline-start: 0.5rem;
-        padding-block: 0.25rem;
-        padding-inline: 0.5rem;
-        position: absolute;
-      }
-      .toolbar label {
-        align-items: center;
-        display: inline-flex;
-        gap: 0.25rem;
-      }
-      .toolbar input[type="number"] {
-        inline-size: 4.5rem;
-      }
       .empty {
         block-size: 100%;
         cursor: default;
@@ -282,7 +258,7 @@ export class CeCanvas extends observer(LitElement) {
         ${this.#grid(cx - halfW, cx + halfW, cy - halfH, cy + halfH)}
         ${this.#models()} ${this.#gizmo()} ${this.#marker()}
       </svg>
-      ${this.#toolbar()}
+      <ce-canvas-toolbar></ce-canvas-toolbar>
       <span class="hint">Drag an item to move it. Hold Alt to skip snapping.</span>
     `;
   }
@@ -296,59 +272,6 @@ export class CeCanvas extends observer(LitElement) {
         text="Pick a model from the Assets Browser."
         .illustration=${surfaceIllustration}
       ></ce-empty-state>
-    `;
-  }
-
-  #toolbar() {
-    const snap = store.snap;
-    const band = store.zBand;
-    const num = (e: Event): number | null => {
-      const raw = (e.target as HTMLInputElement).value.trim();
-      return raw === "" || !Number.isFinite(Number(raw)) ? null : Number(raw);
-    };
-    return html`
-      <div class="toolbar">
-        <label>Grid <select @change=${(e: Event) => {
-          const v = (e.target as HTMLSelectElement).value;
-          snap.grid = v === "off" ? null : Number(v);
-        }}>
-          <option value="off" .selected=${snap.grid === null}>off</option>
-          ${GRID_STEPS.map((g) =>
-            html`<option value=${g} .selected=${
-              snap.grid === g
-            }>${g} m</option>`
-          )}
-        </select></label>
-        <label><input type="checkbox" .checked=${snap.vertex}
-          @change=${(
-            e: Event,
-          ) => (snap.vertex = (e.target as HTMLInputElement).checked)} />
-          Vertex</label>
-        <label><input type="checkbox" .checked=${snap.edge}
-          @change=${(
-            e: Event,
-          ) => (snap.edge = (e.target as HTMLInputElement).checked)} />
-          Edge</label>
-        <label>Angle <select @change=${(e: Event) => {
-          const v = (e.target as HTMLSelectElement).value;
-          snap.angle = v === "off" ? null : Number(v);
-        }}>
-          <option value="off" .selected=${snap.angle === null}>off</option>
-          ${ANGLE_STEPS.map((a) =>
-            html`<option value=${a} .selected=${
-              snap.angle === a
-            }>${a}&deg;</option>`
-          )}
-        </select></label>
-        <label>Z Min<input type="number" .value=${band.min === null
-          ? ""
-          : String(band.min)}
-          @change=${(e: Event) => (band.min = num(e))} /></label>
-        <label>Z Max<input type="number" .value=${band.max === null
-          ? ""
-          : String(band.max)}
-          @change=${(e: Event) => (band.max = num(e))} /></label>
-      </div>
     `;
   }
 
