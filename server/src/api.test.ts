@@ -137,6 +137,53 @@ Deno.test("api: choosing a folder validates, saves, and applies it live", async 
   });
 });
 
+Deno.test("api: choosing a content folder returns its path under content", async () => {
+  await withTempDir(async (modsRoot) => {
+    const starts: (string | undefined)[] = [];
+    let answer: string | null = null;
+    const handler = createHandler(
+      config(modsRoot),
+      () => Promise.resolve(),
+      ({ start }) => {
+        starts.push(start);
+        return Promise.resolve(answer);
+      },
+    );
+    await call(handler, "POST", "/api/mods", {
+      modId: "demo_mod",
+      name: "Demo",
+    });
+    const content = join(modsRoot, "demo_mod", "content");
+    await Deno.mkdir(join(content, "stations", "custom"), { recursive: true });
+    const path = "/api/config/choose";
+    const ask = (current?: string) =>
+      call(handler, "POST", path, {
+        setting: "contentFolder",
+        dir: "demo_mod",
+        current,
+      });
+
+    const cancelled = await ask("");
+    assertEquals(cancelled.body, { cancelled: true });
+    assertEquals(starts[0], content);
+
+    answer = join(content, "stations", "custom");
+    const picked = await ask("stations/custom");
+    assertEquals(picked.body, { folder: "stations/custom" });
+    assertEquals(starts[1], join(content, "stations", "custom"));
+
+    answer = content;
+    assertEquals((await ask()).status, 400);
+    answer = modsRoot;
+    assertEquals((await ask()).status, 400);
+    // The config file is never written by this setting.
+    assertEquals(
+      await Deno.stat(config(modsRoot).configFile).catch(() => null),
+      null,
+    );
+  });
+});
+
 async function modWithImages(modsRoot: string) {
   const handler = createHandler(config(modsRoot));
   await call(handler, "POST", "/api/mods", { modId: "demo_mod", name: "Demo" });

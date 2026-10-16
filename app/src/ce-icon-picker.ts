@@ -14,6 +14,8 @@ import { sharedStyles } from "./styles.ts";
 const ROW_LIMIT = 50;
 /** The tallest the list gets: 18rem at the default 16px root size. */
 const LIST_HEIGHT = 288;
+/** Gap between the list and the pane's side edges, in pixels. */
+const PANE_EDGE = 8;
 
 /**
  * Text field for an image path with a preview of the current value and a
@@ -31,6 +33,7 @@ export class CeIconPicker extends LitElement {
     folders: { state: true },
     active: { state: true },
     broken: { state: true },
+    frame: { state: true },
     failed: { state: true },
     problem: { state: true },
     placement: { state: true },
@@ -94,19 +97,15 @@ export class CeIconPicker extends LitElement {
         /* The height cap is the list's whole outer height, border and padding
           included, so it cannot grow past the room it was given. */
         box-sizing: border-box;
-        inset-block-start: calc(100% + 0.25rem);
-        inset-inline: 0;
         list-style: none;
         margin: 0;
         max-block-size: 18rem;
         overflow: auto;
         padding: 0.25rem;
-        position: absolute;
+        /* Fixed, so the list spans the pane instead of the narrow input. The
+          inline style sets the edges from the pane's visible box. */
+        position: fixed;
         z-index: 10;
-      }
-      ul[role="listbox"].up {
-        inset-block-end: calc(100% + 0.25rem);
-        inset-block-start: auto;
       }
       li[role="option"] {
         align-items: center;
@@ -180,6 +179,9 @@ export class CeIconPicker extends LitElement {
   /** Which side of the field the list opens on, and its tallest height. */
   declare placement: Placement;
 
+  /** Fixed-position edges of the list, in viewport pixels. */
+  declare frame: { left: number; width: number; edge: number };
+
   #sequence = 0;
   #checked = 0;
   #committed = false;
@@ -198,6 +200,7 @@ export class CeIconPicker extends LitElement {
     this.failed = "";
     this.problem = "";
     this.placement = { up: false, maxHeight: LIST_HEIGHT };
+    this.frame = { left: 0, width: 0, edge: 0 };
   }
 
   async #search(query: string) {
@@ -356,16 +359,26 @@ export class CeIconPicker extends LitElement {
   #place = () => {
     const box = this.renderRoot.querySelector(".box");
     if (!box) return;
-    const next = placeList(
-      box.getBoundingClientRect(),
-      clipRect(box),
-      LIST_HEIGHT,
+    const anchor = box.getBoundingClientRect();
+    const next = placeList(anchor, clipRect(box), LIST_HEIGHT);
+    // The list fills the scrolling pane's width, not the input's.
+    const pane = scrollParent(box)?.getBoundingClientRect();
+    const left = Math.round((pane?.left ?? anchor.left) + PANE_EDGE);
+    const width = Math.max(
+      0,
+      Math.round((pane?.width ?? anchor.width) - 2 * PANE_EDGE),
     );
+    const edge = next.up
+      ? Math.round(globalThis.innerHeight - anchor.top + 4)
+      : Math.round(anchor.bottom + 4);
+    const old = this.placement;
     if (
-      next.up !== this.placement.up ||
-      next.maxHeight !== this.placement.maxHeight
+      next.up !== old.up || next.maxHeight !== old.maxHeight ||
+      left !== this.frame.left || width !== this.frame.width ||
+      edge !== this.frame.edge
     ) {
       this.placement = next;
+      this.frame = { left, width, edge };
     }
   };
 
@@ -495,7 +508,14 @@ export class CeIconPicker extends LitElement {
         role="listbox"
         aria-label=${this.label}
         class=${this.placement.up ? "up" : ""}
-        style="max-block-size: ${this.placement.maxHeight}px"
+        style=${[
+          `max-block-size: ${this.placement.maxHeight}px`,
+          `inset-inline-start: ${this.frame.left}px`,
+          `inline-size: ${this.frame.width}px`,
+          this.placement.up
+            ? `inset-block-end: ${this.frame.edge}px`
+            : `inset-block-start: ${this.frame.edge}px`,
+        ].join("; ")}
       >
         ${this.failed
           ? html`<li class="error">${this.failed}</li>`

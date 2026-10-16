@@ -1,4 +1,4 @@
-import { join } from "jsr:@std/path@^1";
+import { isAbsolute, join, relative, SEPARATOR } from "jsr:@std/path@^1";
 import { UserError } from "./mods.ts";
 
 /**
@@ -94,6 +94,26 @@ export function mergeConfig(
     current = parsed as Record<string, unknown>;
   }
   return JSON.stringify({ ...current, [setting]: path }, null, 2) + "\n";
+}
+
+/**
+ * The `/` separated folder of `picked` under a mod's `content` folder. Throws a
+ * `UserError` when `picked` is the content folder itself or lies outside it.
+ */
+export function contentFolderOf(content: string, picked: string): string {
+  const rel = relative(content, picked);
+  if (rel === "") {
+    throw new UserError(
+      "Could not use the content folder itself. Choose a folder inside it.",
+    );
+  }
+  if (rel === ".." || rel.startsWith(`..${SEPARATOR}`) || isAbsolute(rel)) {
+    throw new UserError(
+      "Could not use that folder. Choose a folder inside the mod's content " +
+        "folder.",
+    );
+  }
+  return rel.split(SEPARATOR).join("/");
 }
 
 /** The dialog prints the chosen path, or nothing when it was cancelled. */
@@ -273,9 +293,8 @@ export function encodeScript(script: string): string {
 export const pickFolder: FolderPicker = async ({ title, start }) => {
   if (Deno.build.os !== "windows") {
     throw new UserError(
-      "Could not open the folder chooser. It is not supported on this OS. " +
-        "Set installRoot or modsRoot in cedit.config.json, then restart the " +
-        "server.",
+      "The folder chooser does not work on this operating system. Edit " +
+        "cedit.config.json to set the folder.",
     );
   }
   let output: Deno.CommandOutput;

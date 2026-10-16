@@ -13,6 +13,7 @@ import {
   textAreaField,
   textField,
 } from "./fields.ts";
+import "./ce-folder-field.ts";
 import "./ce-icon-picker.ts";
 import "./ce-range-slider.ts";
 import type { RangeChange } from "./ce-range-slider.ts";
@@ -307,11 +308,20 @@ export class CeProperties extends observer(LitElement) {
             )}
         ></ce-icon-picker>
       </div>
-      ${textField(
-        "Content Folder",
-        doc.folder,
-        (v) => store.edit((d) => (d.folder = v)),
-      )}
+      <ce-folder-field
+        label="Content Folder"
+        root="./content/"
+        .value=${doc.folder}
+        ?choosing=${store.choosingFolder === "contentFolder"}
+        @change=${(e: CustomEvent<{ value: string }>) =>
+          store.edit((d) => (d.folder = e.detail.value))}
+        @choose=${async () => {
+          const folder = await store.chooseContentFolder(doc.folder);
+          if (folder !== null && folder !== doc.folder) {
+            store.edit((d) => (d.folder = folder));
+          }
+        }}
+      ></ce-folder-field>
       <div class="cols">
         ${groupedSelectField(
           "Menu Category",

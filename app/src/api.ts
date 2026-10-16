@@ -50,16 +50,44 @@ export class ApiError extends Error {
   }
 }
 
+/** The request never reached the server: it is down or the network is. */
+export class UnreachableError extends Error {
+  constructor() {
+    super("The editor could not reach its server.");
+    this.name = "UnreachableError";
+  }
+}
+
+let unreachableListener: (() => void) | null = null;
+
+/** Sets the one function that hears of every request that cannot connect. */
+export function onUnreachable(listener: (() => void) | null) {
+  unreachableListener = listener;
+}
+
 async function call<T>(
   method: string,
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: body === undefined ? {} : { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      headers: body === undefined ? {} : { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    // `fetch` rejects only when no response came back at all.
+    unreachableListener?.();
+    throw new UnreachableError();
+  }
+  // The Vite proxy answers 502 when the server is down. The server itself
+  // never sends 502, 503, or 504.
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    unreachableListener?.();
+    throw new UnreachableError();
+  }
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
     throw new ApiError(res.status, payload.error ?? `HTTP ${res.status}`);
@@ -79,6 +107,12 @@ export const api = {
       | { cancelled: true }
       | { installRoot: string | null; modsRoot: string }
     >("POST", "/config/choose", { setting }),
+  chooseContentFolder: (dir: string, current: string) =>
+    call<{ cancelled: true } | { folder: string }>(
+      "POST",
+      "/config/choose",
+      { setting: "contentFolder", dir, current },
+    ),
   listMods: () => call<ModListing[]>("GET", "/mods"),
   createMod: (modId: string, name: string) =>
     call<ModListing>("POST", "/mods", { modId, name }),

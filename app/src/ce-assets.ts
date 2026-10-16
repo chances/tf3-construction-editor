@@ -105,8 +105,7 @@ export class CeAssets extends observer(LitElement) {
               }}
               ><code>cedit.config.json</code></a
             >
-            to the Transport Fever 3 folder, then restart the server with
-            <code>deno task dev</code>.
+            to the Transport Fever 3 folder.
             ${store.message
               ? html`<p class="error">${store.message}</p>`
               : null}

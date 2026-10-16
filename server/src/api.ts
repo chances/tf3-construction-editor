@@ -1,5 +1,7 @@
+import { join } from "jsr:@std/path@^1";
 import {
   type ConstructionDoc,
+  isValidContentFolder,
   lintConstruction,
   parseConstruction,
   SchemaError,
@@ -13,6 +15,7 @@ import {
 } from "./config-watch.ts";
 import { LuaParseError } from "./luatab.ts";
 import {
+  contentFolderOf,
   type FolderPicker,
   isFolderSetting,
   mergeConfig,
@@ -33,6 +36,7 @@ import {
   exportConstruction,
   listMods,
   loadMod,
+  modDir,
   readConstruction,
   saveMod,
   UserError,
@@ -236,9 +240,38 @@ export function createHandler(
           // images re-index on the next request.
           const body = await req.json().catch(() => ({}));
           const setting = body?.setting;
+          if (setting === "contentFolder") {
+            // Not a config setting. The dialog starts at the current folder
+            // when it exists, else at the mod's content folder, and only a
+            // folder inside content counts. Nothing is saved here.
+            const content = join(
+              modDir(config.modsRoot, String(body.dir ?? "")),
+              "content",
+            );
+            await Deno.mkdir(content, { recursive: true });
+            const current = typeof body.current === "string"
+              ? body.current
+              : "";
+            let start = content;
+            if (isValidContentFolder(current)) {
+              const candidate = join(content, ...current.split("/"));
+              try {
+                if ((await Deno.stat(candidate)).isDirectory) start = candidate;
+              } catch (error) {
+                if (!(error instanceof Deno.errors.NotFound)) throw error;
+              }
+            }
+            const picked = await pick({
+              title: "Choose the Content Folder",
+              start,
+            });
+            if (picked === null) return json({ cancelled: true });
+            return json({ folder: contentFolderOf(content, picked) });
+          }
           if (!isFolderSetting(setting)) {
             throw new UserError(
-              'The setting must be "installRoot" or "modsRoot".',
+              'The setting must be "installRoot", "modsRoot", or ' +
+                '"contentFolder".',
             );
           }
           const picked = await pick({
@@ -447,8 +480,7 @@ export function createHandler(
     return json(
       {
         error: `The server has no route for ${req.method} ${url.pathname}. ` +
-          "The app may be newer than the running server, so restart the " +
-          "server with `deno task dev`.",
+          "The app and its server are out of step.",
       },
       404,
     );

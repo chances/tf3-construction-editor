@@ -292,7 +292,7 @@ export class CeCanvas extends observer(LitElement) {
       <ce-empty-state
         class="empty"
         heading="Add a Model"
-        text="Pick a model from the Assets browser."
+        text="Pick a model from the Assets Browser."
         .illustration=${surfaceIllustration}
       ></ce-empty-state>
     `;

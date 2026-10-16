@@ -1,4 +1,5 @@
 import { css, html, LitElement } from "lit";
+import { warningIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
 import { counted } from "./plural.ts";
 import { store } from "./state.ts";
@@ -7,9 +8,10 @@ import { sharedStyles } from "./styles.ts";
 const MODEL = { one: "model", other: "models" };
 
 /**
- * Modal that asks before a construction is deleted. It names the item, says
- * what is removed, and puts focus on the safe choice. `Escape` and Cancel
- * dismiss it. A click on the backdrop or on empty space does nothing.
+ * The app's one modal. It asks before a construction or layer is deleted: it
+ * names the item, says what is removed, and puts focus on the safe choice.
+ * It also reports an unreachable server. `Escape` and Cancel dismiss it. A
+ * click on the backdrop or on empty space does nothing.
  */
 export class CeConfirmDialog extends observer(LitElement) {
   static override styles = [
@@ -34,6 +36,17 @@ export class CeConfirmDialog extends observer(LitElement) {
         margin: 0 0 0.5rem;
         text-transform: none;
       }
+      /* An error dialog's title leads with the warning triangle in the error
+        color. The title text keeps the normal text color. */
+      h2.alert {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+      }
+      h2.alert svg {
+        color: var(--ce-error);
+        flex: none;
+      }
       p {
         margin: 0 0 0.5rem;
       }
@@ -55,7 +68,7 @@ export class CeConfirmDialog extends observer(LitElement) {
   override updated() {
     const dialog = this.renderRoot.querySelector("dialog");
     if (!dialog) return;
-    const wanted = store.pendingDelete !== null ||
+    const wanted = store.serverUnreachable || store.pendingDelete !== null ||
       store.pendingLayerDelete !== null;
     if (wanted && !dialog.open) dialog.showModal();
     else if (!wanted && dialog.open) dialog.close();
@@ -70,10 +83,32 @@ export class CeConfirmDialog extends observer(LitElement) {
         aria-describedby="body"
         @cancel=${(e: Event) => {
           e.preventDefault();
-          store.cancelDelete();
+          if (store.serverUnreachable) store.dismissUnreachable();
+          else store.cancelDelete();
         }}
       >
-        ${layer
+        ${store.serverUnreachable
+          ? html`
+            <h2 id="title" class="alert">
+              ${warningIcon(18)}Server Unreachable
+            </h2>
+            <p id="body">
+              The editor could not reach its server, so nothing can be loaded
+              or saved right now.
+            </p>
+            <p class="muted">
+              Changes you make stay in this window until the server answers.
+            </p>
+            <div class="actions">
+              <button autofocus @click=${() => store.dismissUnreachable()}>
+                Dismiss
+              </button>
+              <button class="primary" @click=${() => store.retryServer()}>
+                Retry
+              </button>
+            </div>
+          `
+          : layer
           ? html`
             <h2 id="title">Delete Layer</h2>
             <p id="body">

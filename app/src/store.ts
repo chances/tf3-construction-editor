@@ -19,6 +19,7 @@ import {
   type LoadedMod,
   type MdlSummary,
   type ModListing,
+  onUnreachable,
 } from "./api.ts";
 
 export interface Selection {
@@ -75,7 +76,7 @@ export class EditorStore {
   message = "";
   busy = false;
   /** The setting whose folder dialog is open, or null. */
-  choosingFolder: "installRoot" | "modsRoot" | null = null;
+  choosingFolder: "installRoot" | "modsRoot" | "contentFolder" | null = null;
 
   snap: SnapSettings = defaultSnap();
   zBand: { min: number | null; max: number | null } = { min: null, max: null };
@@ -91,6 +92,8 @@ export class EditorStore {
   };
   /** The construction waiting for the user to confirm its deletion. */
   pendingDelete: { id: string; name: string } | null = null;
+  /** True after a request found no server. The modal shows until dismissed. */
+  serverUnreachable = false;
   /** The layer waiting for the user to confirm its deletion. */
   pendingLayerDelete: { sub: number; name: string; models: number } | null =
     null;
@@ -122,6 +125,27 @@ export class EditorStore {
 
   constructor() {
     makeAutoObservable(this, {}, { autoBind: true });
+    onUnreachable(this.markUnreachable);
+  }
+
+  markUnreachable() {
+    this.serverUnreachable = true;
+  }
+
+  dismissUnreachable() {
+    this.serverUnreachable = false;
+  }
+
+  /** Asks the server for its config. The modal closes when it answers. */
+  async retryServer() {
+    try {
+      await api.config();
+      runInAction(() => {
+        this.serverUnreachable = false;
+      });
+    } catch {
+      // The listener already reopened the modal.
+    }
   }
 
   get dir(): string {
@@ -191,6 +215,28 @@ export class EditorStore {
       await this.#applyConfig(result);
     } catch (error) {
       this.#fail(error, `Could not change the ${name}.`);
+    } finally {
+      runInAction(() => {
+        this.choosingFolder = null;
+      });
+    }
+  }
+
+  /**
+   * Opens the server's folder dialog inside the open mod's content folder.
+   * Resolves with the chosen folder under `content/`, or null when the dialog
+   * was cancelled or failed.
+   */
+  async chooseContentFolder(current: string): Promise<string | null> {
+    if (this.choosingFolder) return null;
+    this.choosingFolder = "contentFolder";
+    this.message = "";
+    try {
+      const result = await api.chooseContentFolder(this.dir, current);
+      return "folder" in result ? result.folder : null;
+    } catch (error) {
+      this.#fail(error, "Could not choose the content folder.");
+      return null;
     } finally {
       runInAction(() => {
         this.choosingFolder = null;

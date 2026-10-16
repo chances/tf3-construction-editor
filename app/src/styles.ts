@@ -108,6 +108,13 @@ export const sharedStyles = css`
     outline: 2px solid var(--ce-accent);
     outline-offset: 1px;
   }
+  /* A plain input in the wrapper gives its border and outline to the wrapper. */
+  .input-suffix > input {
+    background: transparent;
+    border: 0;
+    flex: 1;
+    outline: 0;
+  }
   .input-suffix button.icon {
     align-items: center;
     background: transparent;
