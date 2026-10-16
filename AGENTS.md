@@ -5,6 +5,11 @@ constructions of one mod and exports them into the mod folder as `.con.lua` and
 `.script.tl` files. The plan is `.agents/plans/construction-editor-v1.md`. Read
 it before changing scope.
 
+The manual test plan for phases 1 and 2 is `tests/plans/v1-manual-tests.html`,
+published as the V1 Manual Tests artifact
+(<https://claude.ai/artifact/REDHFz2QJKd28NsWUQjDjm>). Republish to that URL to
+update it.
+
 ## Layout
 
 Each folder sits at the repo root and is a Deno workspace member.

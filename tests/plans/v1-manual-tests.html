@@ -1,0 +1,788 @@
+<title>V1 Manual Tests</title>
+<style>
+/* Layout: sticky progress header, one section per feature area, rows are tickable steps with an optional note. */
+:root {
+  --bg: #f5f6f4;
+  --surface: #ffffff;
+  --fg: #1d2421;
+  --muted: #5d6963;
+  --line: #d9ded9;
+  --accent: #1f6f5b;
+  --accent-fg: #ffffff;
+  --done: #2f7d4f;
+  --warn: #a3590b;
+  --fail: #b3362b;
+  --focus: #1f6f5b;
+  --display: "Fraunces", Georgia, serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151a18;
+    --surface: #1d2421;
+    --fg: #e6ebe7;
+    --muted: #9aa8a0;
+    --line: #313b36;
+    --accent: #5fc2a3;
+    --accent-fg: #0e1512;
+    --done: #6fcf93;
+    --warn: #e0a15c;
+    --fail: #ef8a7f;
+    --focus: #5fc2a3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151a18;
+  --surface: #1d2421;
+  --fg: #e6ebe7;
+  --muted: #9aa8a0;
+  --line: #313b36;
+  --accent: #5fc2a3;
+  --accent-fg: #0e1512;
+  --done: #6fcf93;
+  --warn: #e0a15c;
+  --fail: #ef8a7f;
+  --focus: #5fc2a3;
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 var(--body);
+  padding-inline: 16px;
+  padding-block: 0 48px;
+}
+main {
+  max-width: 820px;
+  margin-inline: auto;
+}
+header.top {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 2;
+  background: var(--bg);
+  padding-block: 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+h1 {
+  font: 600 26px/1.2 var(--display);
+  margin: 0;
+  text-wrap: balance;
+}
+.sub {
+  color: var(--muted);
+  margin: 4px 0 12px;
+}
+.bar {
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--done);
+  transition: width .2s;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.stats b {
+  color: var(--fg);
+}
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+button.tool {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.tool:hover {
+  border-color: var(--accent);
+}
+.sync {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+}
+section {
+  margin-top: 28px;
+}
+h2 {
+  font: 600 19px/1.3 var(--display);
+  margin: 0 0 4px;
+}
+h2 small {
+  font: 400 13px var(--body);
+  color: var(--muted);
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.intro {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  align-items: start;
+}
+.step:first-of-type {
+  border-top: 0;
+}
+.step input[type=checkbox] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.step label {
+  cursor: pointer;
+  min-width: 0;
+}
+.step.done label .t {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--line);
+}
+.step .exp {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+code {
+  font: 12.5px var(--mono);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.flag {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.flag[aria-pressed=true] {
+  color: var(--fail);
+  border-color: var(--fail);
+}
+textarea.note {
+  grid-column: 2 / 4;
+  width: 100%;
+  font: 13px/1.4 var(--body);
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  resize: vertical;
+  min-height: 3lh;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.step.fail {
+  box-shadow: inset 3px 0 0 var(--fail);
+  padding-left: 10px;
+}
+.hidden-note textarea.note {
+  display: none;
+}
+@media (max-width: 480px) {
+  .step {
+    grid-template-columns: auto 1fr;
+  }
+  .flag {
+    grid-column: 2;
+    grid-row: auto;
+    justify-self: start;
+  }
+  textarea.note {
+    grid-column: 2;
+  }
+}
+</style>
+<link rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono&display=swap">
+
+<main>
+  <header class="top">
+    <h1>V1 Manual Tests</h1>
+    <p
+      class="sub">Construction Editor v1. Run <code>deno task dev</code>, open the app, and work top to bottom.</p>
+    <div class="bar" aria-hidden="true"><span id="fill"></span></div>
+    <div class="stats" id="stats" aria-live="polite"></div>
+    <div class="tools">
+      <button class="tool" id="hideDone" type="button"
+        aria-pressed="false">Hide Done Steps</button>
+      <button class="tool" id="reset" type="button">Reset All</button>
+      <span class="sync" id="sync"></span>
+    </div>
+  </header>
+  <div id="root"></div>
+</main>
+
+<script>
+const PLAN = [
+  {
+    id: "p1-mod",
+    title: "Choose a Mod",
+    intro:
+      "Phase 1. Needs a mods folder with at least one mod that has a mod.json.",
+    steps: [
+      [
+        "open",
+        "Open an existing mod folder",
+        "The mod loads and the flow moves to Mod Details.",
+      ],
+      [
+        "new",
+        "Create a mod with the New Mod card",
+        "A folder with mod.json appears under modsRoot.",
+      ],
+      [
+        "bad",
+        "Open a folder with no mod.json",
+        "The app rejects it with a readable message and stays on the picker.",
+      ],
+    ],
+  },
+  {
+    id: "p1-details",
+    title: "Mod Details",
+    intro: "Phase 1. Edits mod.json and _metadata/modinfo.json.",
+    steps: [
+      [
+        "fields",
+        "Edit every mod.json field and save",
+        "modId, revision, severityAdd, severityRemove, visible, cosmetic, dependencies, incompatibilities persist after a reload.",
+      ],
+      [
+        "info",
+        "Edit every modinfo.json field and save",
+        "name, summary, description, authors, tags, localization persist after a reload.",
+      ],
+      [
+        "unknown",
+        "Add an unknown key by hand, edit a field in the app, save",
+        "The unknown key is still in the file.",
+      ],
+      [
+        "strings",
+        "Check strings.json after saving",
+        "The file is byte-for-byte unchanged.",
+      ],
+    ],
+  },
+  {
+    id: "p1-con",
+    title: "Construction",
+    intro:
+      "Phase 1. One mod holds many constructions and one is open at a time.",
+    steps: [
+      [
+        "create",
+        "Create a construction",
+        "_metadata/constructions/<id>.json is written.",
+      ],
+      [
+        "switch",
+        "Create a second one and switch between them",
+        "Each keeps its own contents. Only one is open.",
+      ],
+      [
+        "inspector",
+        "Edit name, description, year range, menu category, order, and content folder",
+        "Values persist after a reload.",
+      ],
+      [
+        "names",
+        "Enter an id with uppercase or spaces",
+        "It is rejected or normalized to lowercase a-z, 0-9, _ and -.",
+      ],
+    ],
+  },
+  {
+    id: "p1-assets",
+    title: "Asset Browser",
+    intro:
+      "Phase 1. Models come from base game zips, the mod's content/, and dependency mods.",
+    steps: [
+      [
+        "list",
+        "Scroll the asset list",
+        "Cards show readable names and chips, with no raw game abbreviations.",
+      ],
+      [
+        "search",
+        "Search with two keywords in mixed case",
+        "Every keyword must match. Case is ignored. Chip text is searchable.",
+      ],
+      [
+        "variants",
+        "Find a model with high, low, idle, open, closed, or prod variants",
+        "The variants show as one model.",
+      ],
+      [
+        "mod",
+        "Find a model that ships in the open mod's content/",
+        "It appears in the list.",
+      ],
+      [
+        "dep",
+        "Add a dependency mod, then find its models",
+        "They appear with the mod_id:: prefix.",
+      ],
+      [
+        "empty",
+        "Search for a string that matches nothing",
+        "A placeholder fills the pane.",
+      ],
+    ],
+  },
+  {
+    id: "p1-place",
+    title: "Place and Inspect",
+    intro: "Phase 1. Models draw as bounding boxes.",
+    steps: [
+      [
+        "place",
+        "Place a model from the list",
+        "A bounding box appears on the surface and in the scene tree.",
+      ],
+      [
+        "transf",
+        "Edit transf values in the inspector",
+        "The box moves, rotates, and scales to match.",
+      ],
+      [
+        "depadd",
+        "Place a model from a dependency mod",
+        "That mod is added to dependencies in Mod Details.",
+      ],
+      [
+        "delete",
+        "Delete a placed model",
+        "A confirmation dialog appears, then the box is removed.",
+      ],
+    ],
+  },
+  {
+    id: "p1-export",
+    title: "Export",
+    intro: "Phase 1. Writes .con.lua, .script.tl, and export-manifest.json.",
+    steps: [
+      [
+        "write",
+        "Export a construction with at least one model",
+        "content/<folder>/<id>.con.lua and <id>.script.tl exist.",
+      ],
+      [
+        "con",
+        "Open the .con.lua",
+        "updateScript points at the script and the file holds data only.",
+      ],
+      [
+        "tl",
+        "Open the .script.tl",
+        "updateFn returns the data table. The file is UTF-8 without BOM.",
+      ],
+      [
+        "manifest",
+        "Open export-manifest.json",
+        "Both written files are listed.",
+      ],
+      [
+        "rerun",
+        "Export again after a change",
+        "Listed files are overwritten without complaint.",
+      ],
+      [
+        "refuse",
+        "Create an unlisted file at an export target path, then export",
+        "The export is refused and the file is untouched.",
+      ],
+      [
+        "merge",
+        "Compare mod.json and modinfo.json after export",
+        "Keys merged, nothing dropped.",
+      ],
+    ],
+  },
+  {
+    id: "p2-history",
+    title: "Undo and Redo",
+    intro: "Phase 2. Every edit is a command. Drags merge into one.",
+    steps: [
+      [
+        "undo-place",
+        "Place, then undo and redo",
+        "The model leaves and returns.",
+      ],
+      [
+        "undo-field",
+        "Edit an inspector field, then undo",
+        "The old value returns.",
+      ],
+      [
+        "undo-drag",
+        "Drag a model a long way, then undo once",
+        "It returns to the start in one step.",
+      ],
+      [
+        "undo-delete",
+        "Delete, then undo",
+        "The model returns with the same values.",
+      ],
+      ["redo-clear", "Undo, then make a new edit", "Redo is cleared."],
+      [
+        "keys",
+        "Use the undo and redo shortcuts and buttons",
+        "Both work, and disabled buttons say why in the title.",
+      ],
+    ],
+  },
+  {
+    id: "p2-select",
+    title: "Selection and Gizmos",
+    intro: "Phase 2.",
+    steps: [
+      [
+        "click",
+        "Click a model on the surface",
+        "It selects and the inspector and scene tree follow.",
+      ],
+      [
+        "tree",
+        "Click an item in the scene tree",
+        "The surface selection follows.",
+      ],
+      ["empty", "Click empty space", "The selection clears."],
+      ["move", "Drag the move gizmo", "The model moves on both axes."],
+      [
+        "rotate",
+        "Drag the rotate gizmo",
+        "The model rotates around its origin.",
+      ],
+      [
+        "scale",
+        "Drag the scale gizmo",
+        "The model scales and the inspector updates live.",
+      ],
+    ],
+  },
+  {
+    id: "p2-snap",
+    title: "Snapping",
+    intro: "Phase 2. Four modes.",
+    steps: [
+      [
+        "grid",
+        "Drag with grid snap at 0.1, 0.5, 1, and 5 m",
+        "Positions land on multiples of the step.",
+      ],
+      [
+        "vertex",
+        "Drag near another model's corner with vertex snap on",
+        "The model locks to the vertex.",
+      ],
+      ["origin", "Drag near the origin", "The model locks to the origin."],
+      [
+        "tangent",
+        "Use edge tangent snap near an edge",
+        "Rotation aligns to the edge.",
+      ],
+      [
+        "angle",
+        "Rotate with angle steps of 1, 5, 15, 45, and 90",
+        "Angles land on multiples of the step.",
+      ],
+      ["off", "Turn snapping off and drag", "Movement is free."],
+    ],
+  },
+  {
+    id: "p2-outline",
+    title: "Silhouette Outlines",
+    intro: "Phase 2. Read from .msh and .msh.blob at LOD 0, cached per model.",
+    steps: [
+      [
+        "draw",
+        "Place a model with a real mesh",
+        "A silhouette outline draws inside the bounding box.",
+      ],
+      [
+        "cache",
+        "Place the same model again, and reload",
+        "The outline appears at once the second time.",
+      ],
+      [
+        "rotate",
+        "Rotate and scale a placed model",
+        "The outline follows the transform.",
+      ],
+      [
+        "nomesh",
+        "Place a model with no mesh, skinned, or unsupported index width",
+        "The box still draws and no crash or blank pane occurs.",
+      ],
+    ],
+  },
+  {
+    id: "p2-layers",
+    title: "Subconstructions and Layers",
+    intro: "Phase 2. Tags and layer visibility.",
+    steps: [
+      [
+        "add",
+        "Add a subconstruction and give it a tag",
+        "It appears in the scene tree.",
+      ],
+      [
+        "move",
+        "Place models in two subconstructions",
+        "Each model belongs to the one that was active.",
+      ],
+      [
+        "hide",
+        "Toggle one layer off",
+        "Its models leave the surface. Other layers stay.",
+      ],
+      ["zband", "Set a Z-band filter", "Only items inside the band show."],
+      [
+        "rename",
+        "Rename and delete a subconstruction",
+        "Delete asks for confirmation. Contents are handled as the dialog says.",
+      ],
+      [
+        "export",
+        "Export with two subconstructions",
+        "Both appear in the .script.tl with their tags.",
+      ],
+    ],
+  },
+  {
+    id: "p2-persist",
+    title: "Persistence",
+    intro: "Phase 2. Round trip through _metadata/constructions/.",
+    steps: [
+      [
+        "reload",
+        "Reload the page and reopen the construction",
+        "Models, tags, and layers are identical.",
+      ],
+      ["restart", "Restart the dev server and reopen", "Nothing is lost."],
+    ],
+  },
+  {
+    id: "game",
+    title: "In Game",
+    intro: "Open Verification Item 8. Only the game can answer this.",
+    steps: [
+      [
+        "load",
+        "Copy the exported mod into the game and start it",
+        "The construction appears under its menu category and places without script errors.",
+      ],
+    ],
+  },
+];
+
+const root = document.getElementById("root");
+const total = PLAN.reduce((n, s) => n + s.steps.length, 0);
+let state = { done: {}, fail: {}, note: {} };
+let hideDone = false;
+const KEY = "ce-test-plan-p1p2";
+let db = null, ref = null, timer = null;
+
+function esc(s) {
+  return String(s).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]),
+  );
+}
+function sid(s, st) {
+  return s.id + "." + st[0];
+}
+
+function build() {
+  root.innerHTML = PLAN.map((s) => `
+    <section id="${s.id}">
+      <h2>${esc(s.title)}<small data-count="${s.id}"></small></h2>
+      <p class="intro">${esc(s.intro)}</p>
+      ${
+    s.steps.map((st) => {
+      const id = sid(s, st);
+      return `<div class="step" data-id="${id}">
+          <input type="checkbox" id="c-${id}">
+          <label for="c-${id}"><span class="t">${
+        esc(st[1])
+      }</span><span class="exp">${esc(st[2])}</span></label>
+          <button class="flag" type="button" aria-pressed="false" title="Mark this step as failing" aria-label="Flag step as failing">Fail</button>
+          <textarea class="note" id="n-${id}" placeholder="Notes (what you saw, steps to reproduce)"></textarea>
+        </div>`;
+    }).join("")
+  }
+    </section>`).join("");
+}
+
+function render() {
+  let done = 0, fails = 0;
+  for (const el of root.querySelectorAll(".step")) {
+    const id = el.dataset.id, d = !!state.done[id], f = !!state.fail[id];
+    if (d) done++;
+    if (f) fails++;
+    el.classList.toggle("done", d);
+    el.classList.toggle("fail", f);
+    el.hidden = hideDone && d;
+    const cb = el.querySelector("input");
+    if (cb.checked !== d) cb.checked = d;
+    const fl = el.querySelector(".flag");
+    fl.setAttribute("aria-pressed", f);
+    const ta = el.querySelector("textarea");
+    if (document.activeElement !== ta && ta.value !== (state.note[id] || "")) {
+      ta.value = state.note[id] || "";
+    }
+  }
+  for (const s of PLAN) {
+    const n = s.steps.filter((st) => state.done[sid(s, st)]).length;
+    root.querySelector(`[data-count="${s.id}"]`).textContent =
+      `${n} / ${s.steps.length}`;
+  }
+  document.getElementById("fill").style.width = (done / total * 100) + "%";
+  document.getElementById("stats").innerHTML =
+    `<span><b>${done}</b> of ${total} done</span><span><b>${
+      total - done
+    }</b> left</span><span><b>${fails}</b> failing</span>`;
+}
+
+function persist() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (e) {}
+  if (!ref) return;
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    try {
+      await ref.set({ state: JSON.stringify(state) });
+      setSync("Saved");
+    } catch (e) {
+      setSync("Save failed, kept in this browser");
+    }
+  }, 400);
+}
+function setSync(t) {
+  document.getElementById("sync").textContent = t;
+}
+
+root.addEventListener("change", (e) => {
+  const el = e.target.closest(".step");
+  if (!el || e.target.type !== "checkbox") return;
+  state.done[el.dataset.id] = e.target.checked;
+  persist();
+  render();
+});
+root.addEventListener("click", (e) => {
+  const b = e.target.closest(".flag");
+  if (!b) return;
+  const id = b.closest(".step").dataset.id;
+  state.fail[id] = !state.fail[id];
+  persist();
+  render();
+});
+root.addEventListener("input", (e) => {
+  if (e.target.tagName !== "TEXTAREA") return;
+  state.note[e.target.closest(".step").dataset.id] = e.target.value;
+  persist();
+});
+document.getElementById("hideDone").addEventListener("click", (e) => {
+  hideDone = !hideDone;
+  e.target.setAttribute("aria-pressed", hideDone);
+  e.target.textContent = hideDone ? "Show Done Steps" : "Hide Done Steps";
+  render();
+});
+document.getElementById("reset").addEventListener("click", (e) => {
+  const b = e.target;
+  if (b.dataset.armed) {
+    state = { done: {}, fail: {}, note: {} };
+    delete b.dataset.armed;
+    b.textContent = "Reset All";
+    persist();
+    render();
+    return;
+  }
+  b.dataset.armed = "1";
+  b.textContent = "Confirm Reset";
+  setTimeout(() => {
+    delete b.dataset.armed;
+    b.textContent = "Reset All";
+  }, 3000);
+});
+
+build();
+try {
+  const raw = localStorage.getItem(KEY);
+  if (raw) state = Object.assign(state, JSON.parse(raw));
+} catch (e) {}
+render();
+
+(async () => {
+  try {
+    db = await window.claude?.use("db");
+    if (!db) {
+      setSync("Saved in this browser");
+      return;
+    }
+    ref = db.doc("plans/phases-1-2");
+    setSync("Syncing…");
+    ref.onSnapshot((snap) => {
+      if (snap.exists) {
+        try {
+          const s = JSON.parse(snap.data().state);
+          if (JSON.stringify(s) !== JSON.stringify(state)) {
+            state = Object.assign({ done: {}, fail: {}, note: {} }, s);
+            render();
+          }
+        } catch (e) {}
+      }
+      setSync("Saved");
+    }, () => setSync("Saved in this browser"));
+  } catch (e) {
+    setSync("Saved in this browser");
+  }
+})();
+</script>
