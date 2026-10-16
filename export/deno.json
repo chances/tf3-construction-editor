@@ -1,0 +1,5 @@
+{
+  "name": "@cedit/export",
+  "version": "0.0.0",
+  "exports": "./mod.ts"
+}

@@ -1,0 +1,11 @@
+{
+  "workspace": ["./schema", "./export", "./server", "./app"],
+  "tasks": {
+    "dev": "deno task --cwd app dev",
+    "build": "deno task --cwd app build",
+    "test": "deno test --permit-no-files",
+    "check": "deno check schema/mod.ts export/mod.ts server/mod.ts app/src/main.ts",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check"
+  }
+}
