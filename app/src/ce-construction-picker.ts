@@ -71,7 +71,11 @@ export class CeConstructionPicker extends observer(LitElement) {
     const showForm = this.creating || !hasItems;
     return html`
       <h2>Choose a Construction</h2>
-      <p class="muted">Open a construction, or create a new one.</p>
+      ${
+        hasItems
+          ? html`<p class="muted">Open a construction, or create a new one.</p>`
+          : null
+      }
       ${hasItems && showForm ? null : hasItems
         ? html`
           <ul class="cards">
