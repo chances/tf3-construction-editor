@@ -1,9 +1,13 @@
-import type {
-  ConstructionDoc,
-  Issue,
-  ModInfoJson,
-  ModJson,
-  Vec3,
+import {
+  type AssetChip,
+  type AssetFilters,
+  CHIP_KINDS,
+  type ChipKind,
+  type ConstructionDoc,
+  type Issue,
+  type ModInfoJson,
+  type ModJson,
+  type Vec3,
 } from "@cedit/schema";
 
 export interface ModListing {
@@ -25,6 +29,15 @@ export interface AssetListing {
   modId?: string;
   /** Every file of this model, including `id`, such as its high and low poly. */
   variants: string[];
+  /** The chips to show, without the ones only this model has. */
+  chips: AssetChip[];
+}
+
+/** How many models have one chip in the whole index. */
+export interface AssetFacet {
+  kind: ChipKind;
+  label: string;
+  count: number;
 }
 
 export interface MdlSummary {
@@ -146,11 +159,17 @@ export const api = {
     ),
   lint: (dir: string, doc: ConstructionDoc) =>
     call<Issue[]>("POST", `/mods/${enc(dir)}/lint`, doc),
-  assets: (dir: string, q: string, limit = 100) =>
-    call<{ total: number; entries: AssetListing[] }>(
+  assets: (dir: string, q: string, filters: AssetFilters = {}, limit = 100) => {
+    const f = CHIP_KINDS.flatMap(({ kind }) =>
+      (filters[kind] ?? []).map((label) => `&f=${enc(`${kind}:${label}`)}`)
+    ).join("");
+    return call<{ total: number; entries: AssetListing[] }>(
       "GET",
-      `/mods/${enc(dir)}/assets?q=${enc(q)}&limit=${limit}`,
-    ),
+      `/mods/${enc(dir)}/assets?q=${enc(q)}&limit=${limit}${f}`,
+    );
+  },
+  assetFacets: (dir: string) =>
+    call<AssetFacet[]>("GET", `/mods/${enc(dir)}/asset-facets`),
   model: (dir: string, id: string) =>
     call<MdlSummary>("GET", `/mods/${enc(dir)}/model?id=${enc(id)}`),
   images: (dir: string, q: string, limit = 50) =>

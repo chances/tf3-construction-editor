@@ -63,6 +63,53 @@ Deno.test("assets: variant files are one result that places the high poly", () =
   assertEquals(index.searchGroups("zzz"), []);
 });
 
+Deno.test("assets: one-model chips are dropped from chips and search", () => {
+  const entry = (id: string) => ({ id, source: "base" as const, entry: id });
+  const index = new AssetIndex([
+    entry("/animal/cougar/cougar.mdl"),
+    entry("/animal/cow/cow.mdl"),
+    entry("/animal/cow/cow_2.mdl"),
+  ]);
+  const labels = (q: string) =>
+    index.searchGroups(q).map((g) => g.chips.map((c) => c.label));
+  assertEquals(labels("cow"), [
+    ["Built-in", "Animals", "Cows"],
+    ["Built-in", "Animals", "Cows"],
+  ]);
+  assertEquals(labels("cougar"), [["Built-in", "Animals"]]);
+  assertEquals(labels("cougars"), []);
+  assertEquals(
+    index.facets().map((f) => `${f.kind}:${f.label}:${f.count}`),
+    ["source:Built-in:3", "domain:Animals:3", "folder:Cows:2"],
+  );
+});
+
+Deno.test("assets: filters OR within a kind and AND across kinds", () => {
+  const entry = (id: string, source: "base" | "mod" = "base") => ({
+    id,
+    source,
+    entry: id,
+  });
+  const index = new AssetIndex([
+    entry("/animal/cow/cow_idle.mdl"),
+    entry("/animal/cow/calf.mdl"),
+    entry("/animal/horse/horse.mdl"),
+    entry("/animal/horse/foal.mdl", "mod"),
+    entry("/animal/sheep/ram_idle.mdl"),
+    entry("/animal/sheep/lamb.mdl", "mod"),
+  ]);
+  const ids = (f: Parameters<AssetIndex["searchGroups"]>[2]) =>
+    index.searchGroups("", 100, f).map((g) => g.entry.id);
+  assertEquals(ids({ folder: ["Cows", "Horses"] }).length, 4);
+  assertEquals(ids({ folder: ["Horses"], source: ["Mod"] }), [
+    "/animal/horse/foal.mdl",
+  ]);
+  assertEquals(ids({ variant: ["Animated"] }), [
+    "/animal/cow/cow_idle.mdl",
+    "/animal/sheep/ram_idle.mdl",
+  ]);
+});
+
 Deno.test("assets: search splits keywords and matches I/O aliases", () => {
   const entry = (id: string) => ({ id, source: "base" as const, entry: id });
   const index = new AssetIndex([

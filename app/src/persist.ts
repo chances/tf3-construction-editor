@@ -20,7 +20,6 @@ export interface PersistedState {
   selection: { sub: number; model: number } | null;
   activeSub: number;
   inspectTarget: PersistedInspectTarget;
-  assetQuery: string;
   snap: SnapSettings;
   zBand: { min: number | null; max: number | null };
   canvas: { cx: number; cy: number; scale: number };
@@ -47,7 +46,6 @@ export function emptyPersisted(): PersistedState {
     selection: null,
     activeSub: 0,
     inspectTarget: "construction",
-    assetQuery: "",
     snap: defaultSnap(),
     zBand: { min: null, max: null },
     canvas: { cx: 0, cy: 0, scale: 10 },
@@ -124,7 +122,6 @@ export function parsePersisted(raw: string | null): PersistedState | null {
       : null,
     activeSub: Math.max(0, Math.trunc(num(value.activeSub, 0))),
     inspectTarget: target,
-    assetQuery: str(value.assetQuery),
     snap: {
       grid: numOrNull(snap.grid) ??
         (snap.grid === null ? null : base.snap.grid),

@@ -2,10 +2,6 @@
 
 ## Assets Browser
 
-- A "State: Idle" tag on a canonicalized model assumes that the model has an animated variant, so the canonicalized model asset should also include the "Animated" tag
-- Add a filters suffix icon button to the "Search models" input. Clicking it
-  toggles a filters overlay on top of the whole app, anchored below the search
-  input
 - Do .mdl files have human-readable names inside? If so, just use that and put
   the full path in an info icon with tooltip in the cards' top-right corner
 - Generate the top-down silhouettes of all the models on the server

@@ -1,5 +1,7 @@
 import { join } from "jsr:@std/path@^1";
 import {
+  type AssetFilters,
+  CHIP_KINDS,
   type ConstructionDoc,
   isValidContentFolder,
   lintConstruction,
@@ -90,6 +92,7 @@ const ROUTES: { method: string; pattern: URLPattern; name: string }[] = [
   ["POST", "/api/mods/:dir/constructions/:id/export", "export"],
   ["POST", "/api/mods/:dir/lint", "lint"],
   ["GET", "/api/mods/:dir/assets", "assets"],
+  ["GET", "/api/mods/:dir/asset-facets", "assetFacets"],
   ["GET", "/api/mods/:dir/model", "model"],
   ["GET", "/api/mods/:dir/images", "images"],
   ["GET", "/api/mods/:dir/image", "image"],
@@ -375,15 +378,27 @@ export function createHandler(
             Number(url.searchParams.get("limit") ?? 100),
             500,
           );
+          const filters: AssetFilters = {};
+          for (const value of url.searchParams.getAll("f")) {
+            const at = value.indexOf(":");
+            const kind = CHIP_KINDS.find((k) => k.kind === value.slice(0, at));
+            if (!kind) continue;
+            (filters[kind.kind] ??= []).push(value.slice(at + 1));
+          }
           return json({
             total: index.size,
-            entries: index.searchGroups(q, limit).map((g) => ({
+            entries: index.searchGroups(q, limit, filters).map((g) => ({
               id: g.entry.id,
               source: g.entry.source,
               modId: g.entry.modId,
               variants: g.variants.map((v) => v.id),
+              chips: g.chips,
             })),
           });
+        }
+        case "assetFacets": {
+          const { index } = await indexFor(p.dir);
+          return json(index.facets());
         }
         case "images": {
           const index = await imageIndexFor(p.dir);

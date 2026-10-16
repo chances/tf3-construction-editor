@@ -40,9 +40,9 @@ Run from the repo root.
 - Path handling always uses `@std/path/posix` (`basename`, `extname`, `dirname`,
   `join`), in every member including `./app`, and never a hand-written slice,
   split, or regex. Model and image names show without folder and extension
-  (`basename(id, extname(id))`). `./app` imports it as `jsr:@std/path@^1` through
-  its `deno.json`, and `@deno/vite-plugin` in `app/vite.config.ts` lets Vite
-  resolve `jsr:` and `npm:` specifiers. The repo has no `package.json`, no
+  (`basename(id, extname(id))`). `./app` imports it as `jsr:@std/path@^1`
+  through its `deno.json`, and `@deno/vite-plugin` in `app/vite.config.ts` lets
+  Vite resolve `jsr:` and `npm:` specifiers. The repo has no `package.json`, no
   `.npmrc`, and no npm install step.
 - Line endings are LF. `.gitattributes` sets `* text=auto eol=lf`, and tests
   never depend on the line endings of a stored file.
@@ -65,7 +65,14 @@ Run from the repo root.
   A leading kind word such as `bird` becomes a parenthetical suffix in the title
   (`bird_crane` is `Crane (Bird)`). Files that differ only by `high`, `low`,
   `idle`, `open`, `closed`, or `prod` are one model. A name word with no known
-  meaning is logged in `.agents/plans/model-name-tags.md`, not guessed.
+  meaning is logged in `.agents/plans/model-name-tags.md`, not guessed. Every
+  chip belongs to a group in `CHIP_KINDS` (Source, Mod, Domain, the type groups,
+  Towns & Cities, Variant, Size, Category), and a chip that exactly one model
+  has is dropped from cards, search, and filters. A group prefix is a colon
+  label (`State: Idle`, `Level: 1`). The search text and the selected filters
+  live in the page URL and never in local storage: the text is `q`, and each
+  group is one parameter with lowercase labels joined by commas and spaces
+  written as `+` (`q=cow&domain=animals,game+mechanics`).
 - Search boxes are keyword search: the query splits on whitespace, every keyword
   must match, and matching ignores case. Chip text and aliases are searchable.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
@@ -74,8 +81,11 @@ Run from the repo root.
   buttons carry a short `title` and a different, descriptive `aria-label` (never
   equal), every delete and removal confirms in the one modal
   (`ce-confirm-dialog`) whether it removes a construction, a layer, a model, or
-  a mod list entry (author, dependency, incompatibility), and icons come
-  from Lucide through `app/src/icons.ts`.
+  a mod list entry (author, dependency, incompatibility), and icons come from
+  Lucide through `app/src/icons.ts`. A new surface that shows existing items
+  carries over their treatments (zone colors, loading and empty states, the
+  squared edge where it joins a field). A heading's actions are as tall as the
+  Scene heading actions (`1.5rem`), so the heading never grows.
 - A control that almost fits a new need is generalized with a prop, never
   copied: `ce-range-slider` serves years and the Z band through `step`,
   `openStart`, and `openIcon`. A control used in a vertically tight place (the

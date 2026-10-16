@@ -394,6 +394,9 @@
       "integrity": "sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q=="
     }
   },
+  "remote": {
+    "https://esm.sh/compromise@14.14.4": "46f4b445dddf9e571dc370318908c9d3c70678555082c3260e2615a130b02a3b"
+  },
   "workspace": {
     "members": {
       "app": {

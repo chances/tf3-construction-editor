@@ -1,6 +1,5 @@
 import { css, html, LitElement, type TemplateResult } from "lit";
 import {
-  assetChips,
   decomposeTransf,
   isMenuCategory,
   MENU_CATEGORIES,
@@ -285,7 +284,7 @@ export class CeProperties extends observer(LitElement) {
       ${listing
         ? html`
           <div class="chips">
-            ${assetChips(listing, listing.variants).map(
+            ${listing.chips.map(
               (c) => html`<span class="chip ${c.zone ?? ""}">${c.label}</span>`,
             )}
           </div>

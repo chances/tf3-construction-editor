@@ -28,7 +28,6 @@ Deno.test("persist: a saved state loads back unchanged", () => {
   state.selection = { sub: 1, model: 2 };
   state.activeSub = 1;
   state.inspectTarget = "model";
-  state.assetQuery = "cube";
   state.snap = { grid: 0.5, vertex: false, edge: true, angle: null };
   state.zBand = { min: -1, max: 4 };
   state.canvas = { cx: 12, cy: -3, scale: 25 };

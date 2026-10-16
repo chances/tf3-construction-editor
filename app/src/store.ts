@@ -1,5 +1,7 @@
 import { makeAutoObservable, observable, runInAction, toJS } from "mobx";
 import {
+  type AssetFilters,
+  type ChipKind,
   composeTransf,
   type ConstructionDoc,
   decomposeTransf,
@@ -10,11 +12,20 @@ import {
   newSubconstruction,
   type PositionYaw,
 } from "@cedit/schema";
+import {
+  canonicalFilters,
+  filterCount,
+  filtersFromSearch,
+  isSelected,
+  queryFromSearch,
+  searchWithState,
+} from "./asset-filters.ts";
 import { History, SnapshotCommand } from "./history.ts";
 import { type PersistedState, STORAGE_VERSION } from "./persist.ts";
 import { defaultSnap, type SnapSettings } from "./snapping.ts";
 import {
   api,
+  type AssetFacet,
   type AssetListing,
   type ExportOutcome,
   type LoadedMod,
@@ -66,7 +77,16 @@ export class EditorStore {
   activeSub = 0;
   assets: AssetListing[] = [];
   assetTotal = 0;
-  assetQuery = "";
+  /** The search text. It lives in the `q` parameter of the page URL, not in storage. */
+  assetQuery = queryFromSearch(globalThis.location?.search ?? "");
+  /** The selected asset filters. They live in the page URL, not in storage. */
+  assetFilters: AssetFilters = filtersFromSearch(
+    globalThis.location?.search ?? "",
+  );
+  /** Whole-index model counts of each chip, loaded when the overlay opens. */
+  assetFacets: AssetFacet[] = [];
+  /** True while the first facet request runs, so the overlay shows a spinner. */
+  assetFacetsLoading = false;
   /** True while the eyedropper waits for a click on a model in the surface. */
   eyedropper = false;
   /** The model id the eyedropper picked, highlighted in the Assets browser. */
@@ -322,7 +342,6 @@ export class EditorStore {
       selection: this.selection ? { ...this.selection } : null,
       activeSub: this.activeSub,
       inspectTarget: this.inspectTarget,
-      assetQuery: this.assetQuery,
       snap: { ...this.snap },
       zBand: { ...this.zBand },
       canvas: { ...this.canvas },
@@ -435,7 +454,10 @@ export class EditorStore {
           : "details";
       });
     }
-    if (saved.assetQuery !== "") await this.searchAssets(saved.assetQuery);
+    if (this.assetQuery !== "" || filterCount(this.assetFilters) > 0) {
+      if (filterCount(this.assetFilters) > 0) void this.loadAssetFacets();
+      await this.searchAssets(this.assetQuery);
+    }
   }
 
   async init() {
@@ -801,7 +823,7 @@ export class EditorStore {
       if (this.listings.has(id)) continue;
       try {
         const listing = this.assets.find((a) => a.variants.includes(id)) ??
-          (await api.assets(this.dir, id, 20)).entries.find((a) =>
+          (await api.assets(this.dir, id, {}, 20)).entries.find((a) =>
             a.variants.includes(id)
           );
         if (listing) runInAction(() => this.listings.set(id, listing));
@@ -949,8 +971,12 @@ export class EditorStore {
     return (min === null || z >= min) && (max === null || z <= max);
   }
 
+  #searchVersion = 0;
+
   async searchAssets(query: string) {
     this.assetQuery = query;
+    this.#writeAssetUrl();
+    const version = ++this.#searchVersion;
     clearTimeout(this.#searchTimer);
     await new Promise<void>((resolve) => {
       this.#searchTimer = setTimeout(
@@ -958,15 +984,86 @@ export class EditorStore {
         query === "" ? 0 : SEARCH_DELAY_MS,
       );
     });
-    if (query !== this.assetQuery || !this.loaded) return;
+    if (version !== this.#searchVersion || !this.loaded) return;
     try {
-      const result = await api.assets(this.dir, query);
+      const result = await api.assets(this.dir, query, toJS(this.assetFilters));
+      if (version !== this.#searchVersion) return;
       runInAction(() => {
         this.assets = result.entries;
         this.assetTotal = result.total;
       });
     } catch (error) {
       this.#fail(error);
+    }
+  }
+
+  /** Selects or clears one chip filter, updates the page URL, and searches again. */
+  toggleAssetFilter(kind: ChipKind, label: string) {
+    const current = this.assetFilters[kind] ?? [];
+    this.#setAssetFilters({
+      ...this.assetFilters,
+      [kind]: isSelected(this.assetFilters, kind, label)
+        ? current.filter((l) => l.toLowerCase() !== label.toLowerCase())
+        : [...current, label],
+    });
+  }
+
+  /** Takes a type-ahead suggestion: selects the tag and keeps the text typed before it. */
+  applySuggestion(kind: ChipKind, label: string, text: string) {
+    this.assetQuery = text;
+    if (!isSelected(this.assetFilters, kind, label)) {
+      this.toggleAssetFilter(kind, label);
+    } else void this.searchAssets(text);
+  }
+
+  clearAssetFilters() {
+    this.#setAssetFilters({});
+  }
+
+  #setAssetFilters(filters: AssetFilters) {
+    this.assetFilters = Object.fromEntries(
+      Object.entries(filters).filter(([, labels]) => labels.length > 0),
+    );
+    void this.searchAssets(this.assetQuery);
+  }
+
+  /** Writes the search text and the selected filters into the page URL. */
+  #writeAssetUrl() {
+    if (!globalThis.history || !globalThis.location) return;
+    const search = searchWithState(
+      globalThis.location.search,
+      this.assetFilters,
+      this.assetQuery,
+    );
+    globalThis.history.replaceState(
+      null,
+      "",
+      `${globalThis.location.pathname}${
+        search ? `?${search}` : ""
+      }${globalThis.location.hash}`,
+    );
+  }
+
+  async loadAssetFacets() {
+    const startedAt = Date.now();
+    const first = this.assetFacets.length === 0;
+    if (first) runInAction(() => (this.assetFacetsLoading = true));
+    try {
+      const facets = await api.assetFacets(this.dir);
+      if (first) {
+        const remaining = SPINNER_MIN_MS - (Date.now() - startedAt);
+        if (remaining > 0) {
+          await new Promise((resolve) => setTimeout(resolve, remaining));
+        }
+      }
+      runInAction(() => {
+        this.assetFacets = facets;
+        this.assetFilters = canonicalFilters(this.assetFilters, facets);
+      });
+    } catch (error) {
+      this.#fail(error);
+    } finally {
+      runInAction(() => (this.assetFacetsLoading = false));
     }
   }
 

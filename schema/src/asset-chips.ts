@@ -14,6 +14,40 @@ export interface AssetChip {
   label: string;
   zone?: "com" | "ind" | "res";
   aliases?: string[];
+  /** Set by `assetChips`: the group of filters the chip belongs to. */
+  kind?: ChipKind;
+}
+
+/** The groups of chips in the filters overlay, in display order. */
+export const CHIP_KINDS = [
+  { kind: "source", label: "Source" },
+  { kind: "mod", label: "Mod" },
+  { kind: "domain", label: "Domain" },
+  { kind: "vehicle", label: "Vehicle Type" },
+  { kind: "station", label: "Station Type" },
+  { kind: "infrastructure", label: "Infrastructure Type" },
+  { kind: "industry", label: "Industry" },
+  { kind: "cargo", label: "Cargo" },
+  { kind: "town", label: "Towns & Cities" },
+  { kind: "variant", label: "Variant" },
+  { kind: "size", label: "Size" },
+  { kind: "folder", label: "Category" },
+] as const;
+
+export type ChipKind = typeof CHIP_KINDS[number]["kind"];
+
+/** The selected filter labels of each kind. */
+export type AssetFilters = Partial<Record<ChipKind, string[]>>;
+
+/** A folder chip label that holds a footprint such as `11x21` is a size. */
+const SIZE_LABEL = /\dx\d/;
+
+/** The folder index after a size, so `1x1 1` and `1x1 2` are both `1x1`. */
+const TRAILING_INDEX = / \d+$/;
+
+/** The identity of a chip, `kind` plus `label`, such as `folder:Animals`. */
+export function chipKey(chip: { kind?: ChipKind; label: string }): string {
+  return `${chip.kind ?? ""}:${chip.label}`;
 }
 
 /** Search words for a chip that is not a word of its label. */
@@ -26,6 +60,13 @@ const ZONES = {
   ind: "Industrial",
   res: "Residential",
 } as const;
+
+/** The zone a chip label names, such as `Commercial` giving `com`. */
+export function zoneOfLabel(label: string): AssetChip["zone"] {
+  return (Object.keys(ZONES) as (keyof typeof ZONES)[]).find((z) =>
+    ZONES[z] === label
+  );
+}
 
 const SOURCES: Record<string, string> = {
   base: "Built-in",
@@ -150,11 +191,12 @@ export function modelNames(
     else if (DROPPED.has(last)) words.pop();
     else break;
   }
+  const animated = suffixes.some((s) => s.startsWith("State: "));
   return {
     title: qualified(titleCaseId(words.map(plainNumber).join("_")), qualifiers),
     base,
     stem: stemOf(base),
-    tags: [...tags, ...suffixes],
+    tags: [...tags, ...suffixes, ...(animated ? ["Animated"] : [])],
   };
 }
 
@@ -232,6 +274,75 @@ export function pathChips(id: string): AssetChip[] {
   return chips(folders);
 }
 
+/** Domain labels where plural of the folder name reads wrong. */
+const DOMAIN_LABELS: Record<string, string> = {
+  infrastructure: "Infrastructure",
+  cargos: "Cargo",
+};
+
+/** Domains that belong in the Towns & Cities group, not in Domain. */
+const TOWN_DOMAINS = new Set(["landmarks"]);
+
+/** `buildings/a/c1` is era A, commercial level 1. */
+const ERA_FOLDER = /^[abc]$/;
+const LEVEL_FOLDER = /^([cir])(\d)$/;
+const LEVEL_ZONES: Record<string, keyof typeof ZONES> = {
+  c: "com",
+  i: "ind",
+  r: "res",
+};
+
+/** The section that holds the second folder, by the first folder. */
+const TYPE_SECTIONS: Record<string, ChipKind> = {
+  vehicle: "vehicle",
+  stations: "station",
+  infrastructure: "infrastructure",
+  industries: "industry",
+  cargos: "cargo",
+};
+
+/**
+ * The domain chip (the first folder, ignoring a leading `assets`) and, for a
+ * domain with types, the type chip (the second folder). `/vehicle/train/a.mdl`
+ * gives `Vehicles` and `Train`. The path chips of these folders are left out
+ * of the category.
+ */
+function pathSections(
+  id: string,
+): { chips: AssetChip[]; consumed: Set<string> } {
+  const folders = id.split("/").filter((s) => s !== "" && !s.includes("::"))
+    .slice(0, -1);
+  const [domain, type] = folders.slice(folders[0] === "assets" ? 1 : 0);
+  const chips: AssetChip[] = [];
+  const consumed = new Set<string>();
+  const plural = (seg: string) => pluralLabel(wordsOf(seg, [], []));
+  if (domain === undefined) return { chips, consumed };
+  chips.push({
+    kind: TOWN_DOMAINS.has(domain) ? "town" : "domain",
+    label: DOMAIN_LABELS[domain] ?? plural(domain),
+  });
+  consumed.add(plural(domain));
+  if (type !== undefined && domain in TYPE_SECTIONS) {
+    chips.push({ kind: TYPE_SECTIONS[domain], label: titleCaseId(type) });
+    consumed.add(plural(type));
+  }
+  if (domain === "buildings") {
+    const [, era, level] = folders.slice(folders[0] === "assets" ? 1 : 0);
+    const [, zoneLetter, n] = level?.match(LEVEL_FOLDER) ?? [];
+    if (era !== undefined && ERA_FOLDER.test(era)) {
+      chips.push({ kind: "town", label: `Era ${era.toUpperCase()}` });
+      consumed.add(plural(era));
+    }
+    if (level !== undefined && zoneLetter !== undefined) {
+      const zone = LEVEL_ZONES[zoneLetter];
+      chips.push({ kind: "town", label: ZONES[zone], zone });
+      chips.push({ kind: "town", label: `Level: ${n}` });
+      consumed.add(plural(level));
+    }
+  }
+  return { chips, consumed };
+}
+
 /**
  * Every chip of one asset, each label once: the source, the mod, the folders,
  * and the tags taken off the name. `variants` are the ids of all files of the
@@ -242,17 +353,71 @@ export function assetChips(
   a: { id: string; source: string; modId?: string | null },
   variants: readonly string[] = [a.id],
 ): AssetChip[] {
+  const kinded = (kind: ChipKind, chips: AssetChip[]): AssetChip[] =>
+    chips.map((c) => ({ ...c, kind }));
+  const { chips: sections, consumed } = pathSections(a.id);
   const all = [
-    sourceChip(a.source),
-    ...(a.modId ? [{ label: a.modId }] : []),
-    ...pathChips(a.id),
-    ...variants.flatMap((id) => modelNames(id).tags).map((label) => ({
-      label,
-    })),
+    ...kinded("source", [sourceChip(a.source)]),
+    ...kinded("mod", a.modId ? [{ label: a.modId }] : []),
+    ...sections,
+    ...pathChips(a.id).filter((c) => !consumed.has(c.label)).map((
+      c,
+    ): AssetChip =>
+      SIZE_LABEL.test(c.label)
+        ? { ...c, kind: "size", label: c.label.replace(TRAILING_INDEX, "") }
+        : { ...c, kind: c.zone ? "town" : "folder" }
+    ),
+    ...kinded(
+      "variant",
+      variants.flatMap((id) => modelNames(id).tags).map((label) => ({
+        label,
+      })),
+    ),
   ].map((c): AssetChip =>
     c.label in ALIASES ? { ...c, aliases: ALIASES[c.label] } : c
   );
   return all.filter((c, i) => all.findIndex((d) => d.label === c.label) === i);
+}
+
+/**
+ * The keys of the chips that exactly one model has. They tell nothing apart, so
+ * the index drops them. An index of fewer than two models has none.
+ */
+export function singleUseChips(chipLists: AssetChip[][]): Set<string> {
+  const counts = chipCounts(chipLists);
+  return new Set(
+    chipLists.length < 2
+      ? []
+      : [...counts].filter(([, n]) => n === 1).map(([key]) => key),
+  );
+}
+
+/** How many models have each chip, by `chipKey`. */
+export function chipCounts(chipLists: AssetChip[][]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const list of chipLists) {
+    for (const key of new Set(list.map(chipKey))) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * True when the chips satisfy the filters: within a kind any selected label
+ * matches, and across kinds every kind with a selection matches.
+ */
+export function matchesFilters(
+  chips: readonly AssetChip[],
+  filters: AssetFilters,
+): boolean {
+  return CHIP_KINDS.every(({ kind }) => {
+    const wanted = (filters[kind] ?? []).map((l) => l.toLowerCase());
+    return wanted.length === 0 ||
+      chips.some((c) =>
+        c.kind === kind && wanted.includes(c.label.toLowerCase())
+      );
+  });
 }
 
 /** The lowercase keywords of a search query, split on whitespace. */
@@ -268,10 +433,8 @@ export function searchKeywords(query: string): string[] {
 export function assetSearchText(
   a: { id: string; source: string; modId?: string | null },
   variants: readonly string[] = [a.id],
+  chips: readonly AssetChip[] = assetChips(a, variants),
 ): string {
-  const chips = assetChips(a, variants).flatMap((c) => [
-    c.label,
-    ...(c.aliases ?? []),
-  ]);
-  return [...variants, ...chips].join("\n").toLowerCase();
+  const words = chips.flatMap((c) => [c.label, ...(c.aliases ?? [])]);
+  return [...variants, ...words].join("\n").toLowerCase();
 }

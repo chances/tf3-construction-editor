@@ -20,7 +20,9 @@ import {
   Pipette,
   Plus,
   Redo2,
+  Search,
   Slash,
+  SlidersHorizontal,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -85,6 +87,8 @@ export const warningIcon = (size = 16) => lucideIcon(TriangleAlert, size);
 export const eyeIcon = (size = 16) => lucideIcon(Eye, size);
 export const eyeClosedIcon = (size = 16) => lucideIcon(EyeClosed, size);
 export const pipetteIcon = (size = 16) => lucideIcon(Pipette, size);
+export const searchIcon = (size = 16) => lucideIcon(Search, size);
+export const filtersIcon = (size = 16) => lucideIcon(SlidersHorizontal, size);
 
 /** Icons a `ce-toggle-button` can show, by its `icon` attribute. */
 export const toggleIcons = {

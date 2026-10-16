@@ -54,6 +54,20 @@ from `/buildings/a/` zips plus one from `/buildings/b/`. Another 125 (66 `a_`,
 22 `b_`, 37 `c_`) are placed only by `asset_util.tl`. `bc_` is shared by eras B
 and C, and `a2_` is a second `a_` variant (`a2_wall_1m_l` beside `a_wall_1m_l`).
 
+## Building Folders
+
+The Assets filters read the folders `buildings/<era>/<zone><level>`, such as
+`buildings/b/c2`. 18 models sit in each of these folders.
+
+| Part                            | Reads as                            | Evidence  | Seen in                                                                                |
+| ------------------------------- | ----------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `a`, `b`, `c` after `buildings` | Era                                 | Confirmed | Era Letters above: `b_` models come only from `/buildings/b/` zips.                    |
+| `c`, `i`, `r` in `c1`           | Commercial, Industrial, Residential | Inferred  | Matches the `com`, `ind`, `res` folders of `assets/buildings`, in the same order.      |
+| `1` to `4` in `c1`              | Building level                      | Inferred  | Era A has levels 1 and 2, era B has 1 to 3, and era C has 1 to 4, with 18 models each. |
+
+The chips are `Era A`, `Era B`, `Era C`, and `Level: 1` to `Level: 4`, in the
+Towns & Cities group.
+
 ## Decoded Words
 
 Confirmed means a comment or code states it. Inferred means the meaning comes

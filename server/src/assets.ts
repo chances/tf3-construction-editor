@@ -1,10 +1,18 @@
 import { dirname, join, relative, SEPARATOR } from "jsr:@std/path@^1";
 import * as posixPath from "jsr:@std/path@^1/posix";
 import {
+  type AssetChip,
+  assetChips,
+  type AssetFilters,
   type AssetGroup,
   assetSearchText,
+  chipCounts,
+  chipKey,
+  type ChipKind,
   groupAssets,
+  matchesFilters,
   searchKeywords,
+  singleUseChips,
   transformPoint,
 } from "@cedit/schema";
 import { type MdlSummary, parseMdl } from "./mdl.ts";
@@ -161,28 +169,76 @@ export class AssetIndex {
     return found;
   }
 
-  /** Models with their variant files and search text, built on first use. */
-  #groups: { group: AssetGroup<AssetEntry>; text: string }[] | null = null;
+  /**
+   * Models with their variant files, chips, and search text, built on first
+   * use. A chip that only one model has is left out of `chips` and `text`.
+   */
+  #groups: {
+    group: AssetGroup<AssetEntry>;
+    chips: AssetChip[];
+    text: string;
+  }[] | null = null;
+
+  #built() {
+    if (this.#groups) return this.#groups;
+    const groups = groupAssets(this.byId.values());
+    const all = groups.map((g) =>
+      assetChips(g.entry, g.variants.map((v) => v.id))
+    );
+    const single = singleUseChips(all);
+    this.#groups = groups.map((group, i) => {
+      const chips = all[i].filter((c) => !single.has(chipKey(c)));
+      return {
+        group,
+        chips,
+        text: assetSearchText(
+          group.entry,
+          group.variants.map((v) => v.id),
+          chips,
+        ),
+      };
+    });
+    return this.#groups;
+  }
 
   /**
    * Keyword search over models, where the variant files of one model (high and
    * low poly, animation states) are one result. A keyword may match any
-   * variant. The result places `entry` and lists every file in `variants`.
+   * variant. The result places `entry`, lists every file in `variants`, and
+   * gives the `chips` to show. `filters` keep the models whose chips match.
    */
-  searchGroups(query: string, limit = 100): AssetGroup<AssetEntry>[] {
-    this.#groups ??= groupAssets(this.byId.values()).map((group) => ({
-      group,
-      text: assetSearchText(group.entry, group.variants.map((v) => v.id)),
-    }));
+  searchGroups(
+    query: string,
+    limit = 100,
+    filters: AssetFilters = {},
+  ): (AssetGroup<AssetEntry> & { chips: AssetChip[] })[] {
     const keywords = searchKeywords(query);
-    const found: AssetGroup<AssetEntry>[] = [];
-    for (const { group, text } of this.#groups) {
-      if (keywords.every((k) => text.includes(k))) {
-        found.push(group);
+    const found: (AssetGroup<AssetEntry> & { chips: AssetChip[] })[] = [];
+    for (const { group, chips, text } of this.#built()) {
+      if (
+        keywords.every((k) => text.includes(k)) &&
+        matchesFilters(chips, filters)
+      ) {
+        found.push({ ...group, chips });
         if (found.length >= limit) break;
       }
     }
     return found;
+  }
+
+  /** How many models each chip has, by kind and label. One-model chips are left out. */
+  facets(): { kind: ChipKind; label: string; count: number }[] {
+    const counts = chipCounts(this.#built().map((g) => g.chips));
+    const seen = new Map<string, { kind: ChipKind; label: string }>();
+    for (const { chips } of this.#built()) {
+      for (const c of chips) {
+        seen.set(chipKey(c), { kind: c.kind!, label: c.label });
+      }
+    }
+    return [...seen].map(([key, chip]) => ({
+      ...chip,
+      count: counts.get(key)!,
+    }));
   }
 
   /** Cache key that changes when the model file changes on disk. */

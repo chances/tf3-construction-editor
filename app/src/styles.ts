@@ -98,7 +98,7 @@ export const sharedStyles = css`
     font-size: 11px;
   }
   /* An input and its icon button share one border, drawn by the wrapper. */
-  .field > .input-suffix {
+  .input-suffix {
     align-items: center;
     background: var(--ce-surface);
     border: 1px solid var(--ce-border);
@@ -118,6 +118,16 @@ export const sharedStyles = css`
     border: 0;
     flex: 1;
     outline: 0;
+  }
+  /* A leading icon, such as the magnifier of a search field. It is a label for
+    the input, so a click on it focuses the field. */
+  .input-suffix > .prefix {
+    align-items: center;
+    cursor: text;
+    color: var(--ce-muted);
+    display: inline-flex;
+    flex: none;
+    padding-inline-start: 0.4rem;
   }
   .input-suffix button.icon {
     align-items: center;

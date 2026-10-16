@@ -2,9 +2,12 @@ import { assertEquals } from "jsr:@std/assert@^1";
 import {
   assetChips,
   groupAssets,
+  matchesFilters,
   modelNames,
   pathChips,
+  singleUseChips,
   sourceChip,
+  zoneOfLabel,
 } from "./asset-chips.ts";
 
 Deno.test("sourceChip names the base game Built-in", () => {
@@ -40,7 +43,7 @@ Deno.test("modelNames moves variant suffixes into tags", () => {
     title: "Train",
     base: "train_low_idle",
     stem: "train",
-    tags: ["Low-Poly", "State: Idle"],
+    tags: ["Low-Poly", "State: Idle", "Animated"],
   });
   assertEquals(modelNames("/animal/cr_fish/cr_fish_01.mdl"), {
     title: "Fish 1",
@@ -125,8 +128,164 @@ Deno.test("groupAssets merges the variant files of one model", () => {
     assetChips({ id: groups[1].entry.id, source: "base" }, [
       ...groups[1].variants.map((v) => v.id),
     ]).map((c) => c.label),
-    ["Built-in", "Animals", "Cows", "State: Idle", "Low-Poly", "High-Poly"],
+    [
+      "Built-in",
+      "Animals",
+      "Cows",
+      "State: Idle",
+      "Animated",
+      "Low-Poly",
+      "High-Poly",
+    ],
   );
+});
+
+Deno.test("zoneOfLabel maps a zone chip label back to its zone", () => {
+  assertEquals(zoneOfLabel("Commercial"), "com");
+  assertEquals(zoneOfLabel("Industrial"), "ind");
+  assertEquals(zoneOfLabel("Residential"), "res");
+  assertEquals(zoneOfLabel("Animals"), undefined);
+});
+
+Deno.test("every state variant adds the Animated tag", () => {
+  assertEquals(modelNames("/a/door_open.mdl").tags, [
+    "State: Open",
+    "Animated",
+  ]);
+  assertEquals(modelNames("/a/door_closed.mdl").tags, [
+    "State: Closed",
+    "Animated",
+  ]);
+  assertEquals(modelNames("/a/door.mdl").tags, []);
+});
+
+Deno.test("assetChips gives each chip its filter kind", () => {
+  const chips = assetChips(
+    { id: "/animal/cow/cow_idle.mdl", source: "dependency", modId: "m_1" },
+  );
+  assertEquals(chips.map((c) => [c.kind, c.label]), [
+    ["source", "Dependency"],
+    ["mod", "m_1"],
+    ["domain", "Animals"],
+    ["folder", "Cows"],
+    ["variant", "State: Idle"],
+    ["variant", "Animated"],
+  ]);
+});
+
+Deno.test("the first folders become domain and type sections", () => {
+  const kinds = (id: string) =>
+    assetChips({ id, source: "base" }).slice(1).map((c) => [c.kind, c.label]);
+  assertEquals(kinds("/vehicle/train/loco/a.mdl"), [
+    ["domain", "Vehicles"],
+    ["vehicle", "Train"],
+    ["folder", "Locos"],
+  ]);
+  assertEquals(kinds("/stations/air/heliport/a.mdl"), [
+    ["domain", "Stations"],
+    ["station", "Air"],
+    ["folder", "Heliports"],
+  ]);
+  assertEquals(kinds("/infrastructure/traffic_light/a.mdl"), [
+    ["domain", "Infrastructure"],
+    ["infrastructure", "Traffic Light"],
+  ]);
+  assertEquals(kinds("/industries/coal_mine/a.mdl"), [
+    ["domain", "Industries"],
+    ["industry", "Coal Mine"],
+  ]);
+  assertEquals(kinds("/cargos/cement/a.mdl"), [
+    ["domain", "Cargo"],
+    ["cargo", "Cement"],
+  ]);
+});
+
+Deno.test("building era and level folders become town chips", () => {
+  assertEquals(
+    assetChips({ id: "/buildings/b/c2/a.mdl", source: "base" }).slice(1)
+      .map((c) => [c.kind, c.label, c.zone]),
+    [
+      ["domain", "Buildings", undefined],
+      ["town", "Era B", undefined],
+      ["town", "Commercial", "com"],
+      ["town", "Level: 2", undefined],
+    ],
+  );
+  assertEquals(zoneOfLabel("Level: 2"), undefined);
+  assertEquals(zoneOfLabel("Era A"), undefined);
+});
+
+Deno.test("the landmarks domain is a town chip", () => {
+  assertEquals(
+    assetChips({ id: "/landmarks/lighthouse/a.mdl", source: "base" }).slice(1)
+      .map((c) => [c.kind, c.label]),
+    [["town", "Landmarks"], ["folder", "Lighthouses"]],
+  );
+});
+
+Deno.test("a leading assets folder stays a category and is skipped by the domain", () => {
+  assertEquals(
+    assetChips({ id: "/assets/stations/street/a.mdl", source: "base" }).slice(1)
+      .map((c) => [c.kind, c.label]),
+    [
+      ["domain", "Stations"],
+      ["station", "Street"],
+      ["folder", "Assets"],
+    ],
+  );
+});
+
+Deno.test("a folder chip with a footprint is a size chip", () => {
+  const chips = assetChips({
+    id: "/building/com/shop_3x4/a.mdl",
+    source: "base",
+  });
+  assertEquals(chips.map((c) => [c.kind, c.label]), [
+    ["source", "Built-in"],
+    ["domain", "Buildings"],
+    ["town", "Commercial"],
+    ["size", "Shop 3x4s"],
+  ]);
+});
+
+Deno.test("size chips drop the folder index after the size", () => {
+  const sizes = (id: string) =>
+    assetChips({ id, source: "base" }).filter((c) => c.kind === "size")
+      .map((c) => c.label);
+  assertEquals(sizes("/building/res/1x1_01/a.mdl"), ["1x1"]);
+  assertEquals(sizes("/building/res/1x1_02/b.mdl"), ["1x1"]);
+  assertEquals(sizes("/building/res/house_3x4_12/c.mdl"), ["House 3x4"]);
+});
+
+Deno.test("singleUseChips finds chips only one model has", () => {
+  const lists = [
+    assetChips({ id: "/animal/cougar/a.mdl", source: "base" }),
+    assetChips({ id: "/animal/cow/b.mdl", source: "base" }),
+    assetChips({ id: "/animal/cow/c.mdl", source: "base" }),
+  ];
+  assertEquals(
+    [...singleUseChips(lists)].sort(),
+    ["folder:Cougars"],
+  );
+  assertEquals([...singleUseChips(lists.slice(0, 1))], []);
+});
+
+Deno.test("matchesFilters ORs within a kind and ANDs across kinds", () => {
+  const chips = assetChips(
+    { id: "/animal/cow/cow_idle.mdl", source: "base" },
+  );
+  assertEquals(matchesFilters(chips, {}), true);
+  assertEquals(matchesFilters(chips, { folder: ["Cows", "Birds"] }), true);
+  assertEquals(
+    matchesFilters(chips, { folder: ["Cows"], variant: ["Animated"] }),
+    true,
+  );
+  assertEquals(
+    matchesFilters(chips, { folder: ["Cows"], variant: ["High-Poly"] }),
+    false,
+  );
+  assertEquals(matchesFilters(chips, { source: ["Mod"] }), false);
+  assertEquals(matchesFilters(chips, { folder: ["cows"] }), true);
 });
 
 Deno.test("pathChips pluralizes every other folder", () => {
