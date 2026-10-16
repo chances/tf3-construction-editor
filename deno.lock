@@ -5,12 +5,17 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@1": "1.1.6",
+    "jsr:@std/text@*": "1.1.0",
     "npm:@happy-dom/global-registrator@^14.12.3": "14.12.3",
+    "npm:@types/pluralize@*": "0.0.33",
     "npm:fflate@0.8.2": "0.8.2",
     "npm:lit@^3.3.3": "3.3.3",
     "npm:lucide@1.57.0": "1.57.0",
     "npm:lucide@^1.57.0": "1.57.0",
     "npm:mobx@^7.0.6": "7.0.6",
+    "npm:pluralize-esm@*": "9.0.5",
+    "npm:pluralize-esm@^9.0.5": "9.0.5",
+    "npm:pluralize@*": "8.0.0",
     "npm:vite@*": "8.3.4",
     "npm:vite@^8.3.4": "8.3.4"
   },
@@ -29,6 +34,9 @@
       "dependencies": [
         "jsr:@std/internal@^1.0.14"
       ]
+    },
+    "@std/text@1.1.0": {
+      "integrity": "3db511996317f63e35b76fe18fe35249723ae0ff6f8305398c78dd64ffa809a7"
     }
   },
   "npm": {
@@ -127,6 +135,9 @@
     },
     "@rolldown/pluginutils@1.0.1": {
       "integrity": "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="
+    },
+    "@types/pluralize@0.0.33": {
+      "integrity": "sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg=="
     },
     "@types/trusted-types@2.0.7": {
       "integrity": "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="
@@ -274,6 +285,12 @@
     "picomatch@4.0.7": {
       "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="
     },
+    "pluralize-esm@9.0.5": {
+      "integrity": "sha512-Kb2dcpMsIutFw2hYrN0EhsAXOUJTd6FVMIxvNAkZCMQLVt9NGZqQczvGpYDxNWCZeCWLHUPxQIBudWzt1h7VVA=="
+    },
+    "pluralize@8.0.0": {
+      "integrity": "sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA=="
+    },
     "postcss@8.5.30": {
       "integrity": "sha512-zkd+e9S1AQHhmaBKye9zlFHWjOwVgqXl1q3ECYy8561K7qxR2cREf/STLskulBFd78k6AOFeA+ff1TtEzk9bAA==",
       "dependencies": [
@@ -347,6 +364,11 @@
           "npm:lucide@^1.57.0",
           "npm:mobx@^7.0.6",
           "npm:vite@^8.3.4"
+        ]
+      },
+      "schema": {
+        "dependencies": [
+          "npm:pluralize-esm@^9.0.5"
         ]
       }
     }

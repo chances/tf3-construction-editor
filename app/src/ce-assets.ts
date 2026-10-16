@@ -1,17 +1,20 @@
 import { css, html, LitElement } from "lit";
+import { assetChips, modelNames } from "@cedit/schema";
+import { cardStyles } from "./card-styles.ts";
 import "./ce-error-state.ts";
 import { spinnerIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
-import { counted } from "./plural.ts";
+import { counted, nounForms } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
-const MODEL = { one: "model", other: "models" };
+const MODEL = nounForms("model");
 
 /** Left aside: search the model index and add a model to the surface. */
 export class CeAssets extends observer(LitElement) {
   static override styles = [
     sharedStyles,
+    cardStyles,
     css`
       :host {
         display: grid;
@@ -33,14 +36,42 @@ export class CeAssets extends observer(LitElement) {
         overflow: auto;
         padding: 0.5rem 0.75rem;
       }
-      .source {
-        color: var(--ce-muted);
-        display: block;
-        font-size: 11px;
+      ul.cards {
+        grid-template-columns: minmax(0, 1fr);
+        margin-block-end: 0;
       }
-      ul.list li button.item {
+      button.card.item[aria-current="true"] {
+        background: var(--ce-selected);
+        border-color: var(--ce-accent);
+      }
+      button.card span.chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        overflow: visible;
         white-space: normal;
-        word-break: break-all;
+      }
+      .chip {
+        border: 1px solid var(--ce-muted);
+        border-radius: 999px;
+        color: var(--ce-muted);
+        font-size: 0.75rem;
+        padding-block: 0.05rem;
+        padding-inline: 0.5rem;
+      }
+      .chip.com {
+        color: var(--ce-zone-com);
+      }
+      .chip.ind {
+        color: var(--ce-zone-ind);
+      }
+      .chip.res {
+        color: var(--ce-zone-res);
+      }
+      .chip.com,
+      .chip.ind,
+      .chip.res {
+        border-color: currentColor;
       }
       .choose {
         align-items: center;
@@ -137,20 +168,29 @@ export class CeAssets extends observer(LitElement) {
                 ? " Select one to place it."
                 : ""}
             </p>
-            <ul class="list">
+            <ul class="cards">
               ${store.assets.map(
                 (a) =>
                   html`
                     <li>
                       <button
-                        class="item"
+                        class="card item"
+                        title=${a.id}
                         aria-current=${String(a.id === store.pickedAssetId)}
                         @click=${() => store.addModel(a.id)}
                       >
-                        ${a.id}
-                        <span class="source"
-                          >${a.source}${a.modId ? ` ${a.modId}` : ""}</span
-                        >
+                        <strong>${modelNames(a.id).title}</strong>
+                        <span class="muted">${a.variants.length > 1
+                          ? modelNames(a.id).stem
+                          : modelNames(a.id).base}</span>
+                        <span class="chips">
+                          ${assetChips(a, a.variants).map(
+                            (c) =>
+                              html`<span class="chip ${
+                                c.zone ?? ""
+                              }">${c.label}</span>`,
+                          )}
+                        </span>
                       </button>
                     </li>
                   `,

@@ -1,11 +1,11 @@
 import { css, html, LitElement } from "lit";
 import { warningIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
-import { counted } from "./plural.ts";
+import { counted, nounForms } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
-const MODEL = { one: "model", other: "models" };
+const MODEL = nounForms("model");
 
 /**
  * The app's one modal. It asks before a construction or layer is deleted: it

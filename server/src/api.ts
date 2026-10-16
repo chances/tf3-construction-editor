@@ -377,10 +377,11 @@ export function createHandler(
           );
           return json({
             total: index.size,
-            entries: index.search(q, limit).map((e) => ({
-              id: e.id,
-              source: e.source,
-              modId: e.modId,
+            entries: index.searchGroups(q, limit).map((g) => ({
+              id: g.entry.id,
+              source: g.entry.source,
+              modId: g.entry.modId,
+              variants: g.variants.map((v) => v.id),
             })),
           });
         }

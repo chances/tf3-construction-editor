@@ -1,13 +1,13 @@
 import { css, html, LitElement } from "lit";
 import { errorIcon, warningIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
-import { counted, plural } from "./plural.ts";
+import { counted, nounForms, plural } from "./plural.ts";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
-const ERROR = { one: "Error", other: "Errors" };
-const WARNING = { one: "Warning", other: "Warnings" };
-const FILE = { one: "file", other: "files" };
+const ERROR = nounForms("Error");
+const WARNING = nounForms("Warning");
+const FILE = nounForms("file");
 
 /** Footer pane: lint errors and warnings, plus the last export result. */
 export class CeProblems extends observer(LitElement) {

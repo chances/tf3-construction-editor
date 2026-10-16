@@ -1,6 +1,12 @@
 import { dirname, join, relative, SEPARATOR } from "jsr:@std/path@^1";
 import * as posixPath from "jsr:@std/path@^1/posix";
-import { transformPoint } from "@cedit/schema";
+import {
+  type AssetGroup,
+  assetSearchText,
+  groupAssets,
+  searchKeywords,
+  transformPoint,
+} from "@cedit/schema";
 import { type MdlSummary, parseMdl } from "./mdl.ts";
 import { parseMsh } from "./msh.ts";
 import { type Point2, silhouette, type Triangle2 } from "./silhouette.ts";
@@ -109,6 +115,8 @@ export class AssetIndex {
   }
 
   add(entry: AssetEntry) {
+    this.#searchText.delete(entry.id);
+    this.#groups = null;
     this.byId.set(entry.id, entry);
   }
 
@@ -124,12 +132,53 @@ export class AssetIndex {
     return this.byId.get(id);
   }
 
+  /** The lowercase search text of each entry, built on first search. */
+  #searchText = new Map<string, string>();
+
+  #searchTextOf(entry: AssetEntry): string {
+    let text = this.#searchText.get(entry.id);
+    if (text === undefined) {
+      text = assetSearchText(entry);
+      this.#searchText.set(entry.id, text);
+    }
+    return text;
+  }
+
+  /**
+   * Keyword search. The query splits on whitespace, and an entry matches when
+   * every keyword is in its id or in the text or alias of one of its chips.
+   */
   search(query: string, limit = 100): AssetEntry[] {
-    const needle = query.toLowerCase();
+    const keywords = searchKeywords(query);
     const found: AssetEntry[] = [];
     for (const entry of this.byId.values()) {
-      if (needle === "" || entry.id.toLowerCase().includes(needle)) {
+      const text = keywords.length > 0 ? this.#searchTextOf(entry) : "";
+      if (keywords.every((k) => text.includes(k))) {
         found.push(entry);
+        if (found.length >= limit) break;
+      }
+    }
+    return found;
+  }
+
+  /** Models with their variant files and search text, built on first use. */
+  #groups: { group: AssetGroup<AssetEntry>; text: string }[] | null = null;
+
+  /**
+   * Keyword search over models, where the variant files of one model (high and
+   * low poly, animation states) are one result. A keyword may match any
+   * variant. The result places `entry` and lists every file in `variants`.
+   */
+  searchGroups(query: string, limit = 100): AssetGroup<AssetEntry>[] {
+    this.#groups ??= groupAssets(this.byId.values()).map((group) => ({
+      group,
+      text: assetSearchText(group.entry, group.variants.map((v) => v.id)),
+    }));
+    const keywords = searchKeywords(query);
+    const found: AssetGroup<AssetEntry>[] = [];
+    for (const { group, text } of this.#groups) {
+      if (keywords.every((k) => text.includes(k))) {
+        found.push(group);
         if (found.length >= limit) break;
       }
     }

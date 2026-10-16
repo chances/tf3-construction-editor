@@ -31,6 +31,58 @@ Deno.test("assets: ids follow the zip folder plus entry name", async () => {
   });
 });
 
+Deno.test("assets: search matches the text of a chip, ignoring case", () => {
+  const entry = (id: string) => ({ id, source: "base" as const, entry: id });
+  const index = new AssetIndex([
+    entry("/animal/cr_fish/cr_fish_01.mdl"),
+    entry("/vehicle/train_low_idle.mdl"),
+    entry("/building/com/awnings/b_awin_l_04.mdl"),
+  ]);
+  const ids = (q: string) => index.search(q).map((e) => e.id);
+  assertEquals(ids("CRITTER"), ["/animal/cr_fish/cr_fish_01.mdl"]);
+  assertEquals(ids("low-poly"), ["/vehicle/train_low_idle.mdl"]);
+  assertEquals(ids("state: idle"), ["/vehicle/train_low_idle.mdl"]);
+  assertEquals(ids("commercial"), ["/building/com/awnings/b_awin_l_04.mdl"]);
+  assertEquals(ids("built-in").length, 3);
+  assertEquals(ids("train"), ["/vehicle/train_low_idle.mdl"]);
+});
+
+Deno.test("assets: variant files are one result that places the high poly", () => {
+  const entry = (id: string) => ({ id, source: "base" as const, entry: id });
+  const index = new AssetIndex([
+    entry("/animal/cow/cow_2.mdl"),
+    entry("/animal/cow/cow_2_prod_low.mdl"),
+    entry("/animal/cow/cow_2_prod_high.mdl"),
+    entry("/animal/cow/cow_2_idle.mdl"),
+  ]);
+  const groups = index.searchGroups("cow");
+  assertEquals(groups.length, 1);
+  assertEquals(groups[0].entry.id, "/animal/cow/cow_2_prod_high.mdl");
+  assertEquals(groups[0].variants.length, 4);
+  assertEquals(index.searchGroups("low-poly idle").length, 1);
+  assertEquals(index.searchGroups("zzz"), []);
+});
+
+Deno.test("assets: search splits keywords and matches I/O aliases", () => {
+  const entry = (id: string) => ({ id, source: "base" as const, entry: id });
+  const index = new AssetIndex([
+    entry("/industries/fishing/terminal_input.mdl"),
+    entry("/industries/fishing/terminal_output.mdl"),
+    entry("/industries/fishing/floating_raft.mdl"),
+  ]);
+  const ids = (q: string) => index.search(q).map((e) => e.id);
+  assertEquals(ids("i/o"), [
+    "/industries/fishing/terminal_input.mdl",
+    "/industries/fishing/terminal_output.mdl",
+  ]);
+  assertEquals(ids("INPUT").length, 2);
+  assertEquals(ids("output").length, 2);
+  assertEquals(ids("terminal  i/o").length, 2);
+  assertEquals(ids("fishing raft"), ["/industries/fishing/floating_raft.mdl"]);
+  assertEquals(ids("fishing zzz"), []);
+  assertEquals(ids("  ").length, 3);
+});
+
 Deno.test("assets: mod ids are absolute and dependency ids carry the prefix", async () => {
   await withTempDir(async (dir) => {
     await Deno.mkdir(join(dir, "content", "assets"), { recursive: true });

@@ -23,6 +23,8 @@ export interface AssetListing {
   id: string;
   source: "base" | "mod" | "dependency";
   modId?: string;
+  /** Every file of this model, including `id`, such as its high and low poly. */
+  variants: string[];
 }
 
 export interface MdlSummary {

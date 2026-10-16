@@ -42,7 +42,19 @@ Run from the repo root.
   (`select(n)` returns a category such as `one` or `other`, mapped to the word)
   and formats the number with `Intl.NumberFormat`. Never hand-write
   `n === 1 ? "model" : "models"`, and never write `(s)`. A zero count drops the
-  phrase when the sentence reads better without it.
+  phrase when the sentence reads better without it. A regular noun gets its
+  forms from `nounForms` in `app/src/plural.ts`, and a bare plural from
+  `pluralNoun`.
+- Asset card names and chips come from `schema/src/asset-chips.ts`, shared by
+  the app and the server search. A game abbreviation in a model name becomes a
+  readable chip and never shows raw (`cr_fish` is `Fish` with a `Critter` chip).
+  A leading kind word such as `bird` becomes a parenthetical suffix in the title
+  (`bird_crane` is `Crane (Bird)`).
+  Files that differ only by `high`, `low`, `idle`, `open`, `closed`, or `prod`
+  are one model. A name word with no known meaning is logged in
+  `.agents/plans/model-name-tags.md`, not guessed.
+- Search boxes are keyword search: the query splits on whitespace, every keyword
+  must match, and matching ignores case. Chip text and aliases are searchable.
 - UI conventions: a stepwise start flow (Choose a Mod, Mod Details,
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only

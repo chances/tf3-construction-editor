@@ -1,3 +1,7 @@
+import { pluralNoun } from "@cedit/schema";
+
+export { pluralNoun };
+
 /** The locale of all interface text. */
 export const LOCALE = "en-US";
 
@@ -10,6 +14,11 @@ export type PluralForms =
   & Partial<
     Record<Exclude<Intl.LDMLPluralRule, "other">, string>
   >;
+
+/** The forms of a regular English noun, for `plural` and `counted`. */
+export function nounForms(noun: string): PluralForms {
+  return { one: noun, other: pluralNoun(noun) };
+}
 
 /** The noun that agrees with `count`, such as `model` or `models`. */
 export function plural(count: number, forms: PluralForms): string {
