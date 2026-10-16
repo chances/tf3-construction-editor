@@ -189,7 +189,7 @@ Deno.test("icon picker: Escape closes the list without a change", async () => {
   input(m).dispatchEvent(new Event("blur"));
   await m.el.updateComplete;
   assertEquals(m.changes, []);
-  assertEquals(input(m).value, "/gui/icons/arrow.tga");
+  assertEquals(input(m).value, "arrow");
 });
 
 Deno.test("icon picker: typed text that matches nothing is still a value", async () => {
