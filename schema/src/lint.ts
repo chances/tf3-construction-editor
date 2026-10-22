@@ -3,8 +3,19 @@ import {
   isValidModId,
   isValidResourceName,
 } from "./names.ts";
+import {
+  isCounterClockwise,
+  MIN_FACE_POINTS,
+  selfIntersects,
+} from "./ground-face.ts";
 import { decomposeTransf } from "./transform.ts";
-import type { ConstructionDoc, Issue, ModInfoJson, ModJson } from "./types.ts";
+import type {
+  ConstructionDoc,
+  GroundFaceDoc,
+  Issue,
+  ModInfoJson,
+  ModJson,
+} from "./types.ts";
 
 export const NAME_MAX = 32;
 export const DESCRIPTION_MAX = 320;
@@ -15,6 +26,8 @@ export const UNVERIFIED_FIELDS: Record<string, string> = {
   dependencyModelPrefix:
     "The `mod_id::/path` form for a dependency model id is not checked in game.",
   modelScale: "A scaled model transform is not checked in game.",
+  groundFaceAlignment:
+    "`loop` and the alignment fields come from the wiki and are not checked in game.",
 };
 
 export interface LintContext {
@@ -66,6 +79,77 @@ export function isDependencyModelId(id: string): boolean {
   return at > 0;
 }
 
+/** Lint rules for one ground face. `path` is the face's path in the document. */
+export function lintGroundFace(face: GroundFaceDoc, path: string): Issue[] {
+  const issues: Issue[] = [];
+  if (face.points.length < MIN_FACE_POINTS) {
+    issues.push({
+      severity: "error",
+      rule: "ground-face-points",
+      path: `${path}.points`,
+      message: `A ground face needs at least ${MIN_FACE_POINTS} points.`,
+    });
+  } else {
+    if (!isCounterClockwise(face.points)) {
+      issues.push({
+        severity: "error",
+        rule: "ground-face-winding",
+        path: `${path}.points`,
+        message: "The ground face points must run counterclockwise.",
+      });
+    }
+    if (selfIntersects(face.points)) {
+      issues.push({
+        severity: "warning",
+        rule: "ground-face-self-intersects",
+        path: `${path}.points`,
+        message: "Two edges of the ground face cross each other.",
+      });
+    }
+  }
+  face.modes.forEach((mode, mi) => {
+    if (mode.key.trim() === "") {
+      issues.push({
+        severity: "error",
+        rule: "ground-face-key",
+        path: `${path}.modes.${mi}.key`,
+        message: "Pick a ground texture for this paint mode.",
+      });
+    }
+    if (mode.texCoords && mode.texCoords.length !== face.points.length) {
+      issues.push({
+        severity: "error",
+        rule: "ground-face-tex-coords",
+        path: `${path}.modes.${mi}.texCoords`,
+        message:
+          `The texture coordinates need one entry per point (${face.points.length}).`,
+      });
+    }
+  });
+  if (face.modes.length === 0) {
+    issues.push({
+      severity: "warning",
+      rule: "ground-face-modes",
+      path: `${path}.modes`,
+      message: "A ground face with no paint mode paints nothing.",
+    });
+  }
+  const usesAlignment = face.loop !== undefined ||
+    face.alignmentOffsetMode !== undefined ||
+    face.alignmentOffset !== undefined ||
+    face.alignmentDirMode !== undefined ||
+    face.alignmentDir !== undefined;
+  if (usesAlignment) {
+    issues.push({
+      severity: "warning",
+      rule: "unverified-field",
+      path,
+      message: UNVERIFIED_FIELDS.groundFaceAlignment,
+    });
+  }
+  return issues;
+}
+
 export function lintConstruction(
   doc: ConstructionDoc,
   ctx: LintContext,
@@ -115,6 +199,11 @@ export function lintConstruction(
     }
   }
   doc.subconstructions.forEach((sub, si) => {
+    (sub.groundFaces ?? []).forEach((face, fi) => {
+      issues.push(
+        ...lintGroundFace(face, `subconstructions.${si}.groundFaces.${fi}`),
+      );
+    });
     sub.models.forEach((model, mi) => {
       const path = `subconstructions.${si}.models.${mi}.id`;
       if (!ctx.resolveModel(model.id)) {

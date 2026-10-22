@@ -118,6 +118,26 @@ Each folder sits at the repo root and is a Deno workspace member.
 - `loop`, `alignmentOffsetMode`, `alignmentOffset`, `alignmentDirMode`,
   `alignmentDir` fields.
 
+Decisions:
+
+| Area         | Decision                                                                                                                                                                               |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Draw         | A Ground Face tool clicks points. Clicking the first vertex, double-click, or Enter closes the face, and Esc cancels. A rectangle tool drags an axis-aligned 4-point face.             |
+| New face     | A closed face gets one FILL mode and the texture picker opens. Cancelling leaves an empty key, which lint reports as an error.                                                         |
+| Winding      | The editor always stores counterclockwise points and reverses a clockwise face without a notice.                                                                                       |
+| Height       | A face has no Z. The game ignores it, and export writes every point at 0.                                                                                                              |
+| Vertices     | Dragging merges into one command. Removing one vertex needs no confirm and is blocked below 3 points. Removing a face or a paint mode needs no confirm either, since undo restores it. |
+| Snapping     | A vertex snaps to other face vertices and model silhouette corners, besides the grid. Angle steps apply to the edge being drawn.                                                       |
+| Texture keys | The server indexes `.gtex.lua` files in base zips, the open mod, and its dependencies. The picker is a searchable name list with thumbnails.                                           |
+| Thumbnails   | The server decodes the preview image, returns PNG, and caches it per texture, like silhouettes. The app has no image decoders.                                                         |
+| texCoords    | Auto: one `{u,v}` per vertex, normalized 0..1 over the face bounding box, recomputed when vertices move. A toggle per mode makes each vertex's u and v editable.                       |
+| Alignment    | `loop` and the alignment fields are face fields in the wiki. They sit in a collapsible Alignment group on the face. Lint warns when one is in use (unverified field).                  |
+| Canvas       | FILL shows the texture thumbnail tiled inside the polygon at reduced opacity with an outline. STROKE modes draw as edge highlights.                                                    |
+| Scene tree   | Each layer lists Models and Ground Faces. Selecting a face moves it whole with the gizmo, and selecting a vertex drags it. Hiding a layer hides both.                                  |
+| Z band       | A face has no Z, so the band never hides it. Only hiding its layer does.                                                                                                               |
+| Lint         | Self-intersecting polygon is a warning. Empty texture key is an error.                                                                                                                 |
+| Manual tests | A Phase 3 section is added to the V1 Manual Tests artifact.                                                                                                                            |
+
 ### Phase 4: Colliders and Terrain Alignment
 
 - BOX, CYLINDER, POINT_CLOUD colliders with `halfExtents` or `points`.

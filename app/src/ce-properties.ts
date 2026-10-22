@@ -1,10 +1,22 @@
 import { css, html, LitElement, type TemplateResult } from "lit";
 import {
+  type AlignmentMode,
   decomposeTransf,
+  type GroundFaceDoc,
+  type GroundFaceModeType,
   isMenuCategory,
   MENU_CATEGORIES,
   menuLabel,
 } from "@cedit/schema";
+import { canRemoveVertex, moveVertex } from "./face-edit.ts";
+import {
+  plusIcon,
+  polygonIcon,
+  rectangleIcon,
+  trashIcon,
+  xIcon,
+} from "./icons.ts";
+import type { SpinnerChange } from "./ce-spinner.ts";
 import {
   checkboxField,
   clearableNumberField,
@@ -23,6 +35,13 @@ import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
 
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
+
+const MODE_TYPES: readonly [GroundFaceModeType, string][] = [
+  ["FILL", "Fill"],
+  ["STROKE", "Stroke"],
+  ["STROKE_INNER", "Stroke Inner"],
+  ["STROKE_OUTER", "Stroke Outer"],
+];
 
 /** The slider's first and last stops. The last stop means "forever". */
 const YEAR_MIN = 1850;
@@ -184,6 +203,79 @@ export class CeProperties extends observer(LitElement) {
         flex-wrap: wrap;
         gap: 0.25rem;
       }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .actions button {
+        align-items: center;
+        display: inline-flex;
+        gap: 0.4rem;
+      }
+      /* The heading actions are as tall as the Scene heading actions. */
+      button.icon-button {
+        align-items: center;
+        block-size: 1.5rem;
+        box-sizing: border-box;
+        display: inline-flex;
+        inline-size: 1.5rem;
+        justify-content: center;
+        padding: 0;
+      }
+      .vertex-grid {
+        align-items: center;
+        display: grid;
+        gap: 0.125rem;
+        grid-template-columns: 0.9rem repeat(2, minmax(0, 1fr)) 1.25rem;
+      }
+      .vertex-grid.head {
+        color: var(--ce-muted);
+        font-size: 11px;
+      }
+      .vertex-grid .index {
+        color: var(--ce-muted);
+        font-variant-numeric: tabular-nums;
+        text-align: end;
+      }
+      .vertex-grid[aria-current="true"] .index {
+        color: var(--ce-accent);
+        font-weight: 600;
+      }
+      /* Paint modes share one box, split by a rule, so no group nests. */
+      .mode {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .mode + .mode {
+        border-block-start: 1px solid var(--ce-border);
+        padding-block-start: 0.5rem;
+      }
+      .mode-head {
+        align-items: end;
+        display: grid;
+        gap: 0.25rem;
+        grid-template-columns: minmax(0, 1fr) 1.5rem;
+      }
+      details.alignment {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      details.alignment[open] > summary {
+        margin-block-end: 0.5rem;
+      }
+      details.alignment > * + * {
+        margin-block-start: 0.5rem;
+      }
+      summary {
+        color: var(--ce-muted);
+        cursor: pointer;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
     `,
   ];
 
@@ -194,6 +286,8 @@ export class CeProperties extends observer(LitElement) {
       <h2>Properties</h2>
       ${target === "model" && store.selectedPlacement
         ? this.#model()
+        : target === "face" && store.selectedFace
+        ? this.#face()
         : target === "layer"
         ? this.#layer()
         : this.#construction()}
@@ -235,6 +329,280 @@ export class CeProperties extends observer(LitElement) {
     return html`
       <p class="muted">A layer is one exported subconstruction.</p>
       ${this.#layerFields()}
+      <div class="actions">
+        <button
+          type="button"
+          title="Draw Ground Face"
+          aria-label="Click out a ground face polygon on the surface"
+          @click=${() => store.setTool("face")}
+        >${polygonIcon(14)} Draw Ground Face</button>
+        <button
+          type="button"
+          title="Draw Rectangle"
+          aria-label="Drag a rectangular ground face on the surface"
+          @click=${() => store.setTool("rect")}
+        >${rectangleIcon(14)} Draw Rectangle</button>
+      </div>
+    `;
+  }
+
+  #face(): TemplateResult {
+    const s = store.faceSelection!;
+    const face = store.selectedFace!;
+    const edit = (
+      change: (f: GroundFaceDoc) => void,
+      label: string,
+    ) => store.editFace(s.sub, s.face, change, { label });
+    const alignmentUsed = face.loop !== undefined ||
+      face.alignmentOffsetMode !== undefined ||
+      face.alignmentOffset !== undefined ||
+      face.alignmentDirMode !== undefined ||
+      face.alignmentDir !== undefined;
+    const modeChoice = (value: string | undefined) => value ?? "Default";
+    const modeSelect = (
+      label: string,
+      value: AlignmentMode | undefined,
+      set: (v: AlignmentMode | undefined) => void,
+    ) =>
+      html`
+        <label class="field"><span>${label}</span><select
+            @change=${(e: Event) => {
+              const v = (e.target as HTMLSelectElement).value;
+              set(v === "Default" ? undefined : v as AlignmentMode);
+            }}
+          >${["Default", "OBJECT", "WORLD"].map((o) =>
+            html`<option .selected=${o === modeChoice(value)}>${o}</option>`
+          )}</select></label>
+      `;
+    const pair = (
+      label: string,
+      value: [number, number] | undefined,
+      set: (v: [number, number]) => void,
+    ) =>
+      html`
+        <div class="cols">
+          ${numberField(
+            `${label} X`,
+            round(value?.[0] ?? 0),
+            (v) => set([v ?? 0, value?.[1] ?? 0]),
+          )}
+          ${numberField(
+            `${label} Y`,
+            round(value?.[1] ?? 0),
+            (v) => set([value?.[0] ?? 0, v ?? 0]),
+          )}
+        </div>
+      `;
+    return html`
+      ${textField("Face Label", face.label ?? "", (v) =>
+        edit((f) => {
+          f.label = v || undefined;
+        }, "Rename ground face"))}
+      <fieldset class="titled" aria-label="Vertices">
+        <div class="group-title">
+          <span>Vertices</span>
+          <button
+            type="button"
+            class="subtle icon-button"
+            title="Add Vertex"
+            aria-label="Split the edge after the picked vertex with a new vertex"
+            @click=${() =>
+              store.addFaceVertex(
+                s.sub,
+                s.face,
+                s.vertex ?? face.points.length - 1,
+              )}
+          >${plusIcon(12)}</button>
+        </div>
+        <div class="vertex-grid head" aria-hidden="true">
+          <span></span><span>X (m)</span><span>Y (m)</span><span></span>
+        </div>
+        ${face.points.map((p, i) =>
+          html`
+            <div
+              class="vertex-grid"
+              aria-current=${String(s.vertex === i)}
+              @focusin=${() => store.selectVertex(i)}
+            >
+              <span class="index">${i + 1}</span>
+              ${(["X", "Y"] as const).map((axis, k) =>
+                html`
+                  <ce-spinner
+                    fill
+                    .label=${`Vertex ${i + 1} ${axis} (m)`}
+                    .step=${null}
+                    .value=${round(p[k])}
+                    @change=${(e: CustomEvent<SpinnerChange>) => {
+                      const v = e.detail.value ?? 0;
+                      edit((f) => {
+                        moveVertex(
+                          f,
+                          i,
+                          k === 0 ? v : f.points[i][0],
+                          k === 1 ? v : f.points[i][1],
+                        );
+                      }, "Move vertex");
+                    }}
+                  ></ce-spinner>
+                `
+              )}
+              <button
+                type="button"
+                class="subtle icon-button"
+                ?disabled=${!canRemoveVertex(face)}
+                title=${canRemoveVertex(face)
+                  ? "Remove Vertex"
+                  : "A ground face keeps 3 vertices"}
+                aria-label=${`Remove vertex ${i + 1} from the ground face`}
+                @click=${() => store.removeFaceVertex(s.sub, s.face, i)}
+              >${xIcon(12)}</button>
+            </div>
+          `
+        )}
+      </fieldset>
+      <fieldset class="titled" aria-label="Paint Modes">
+        <div class="group-title">
+          <span>Paint Modes</span>
+          <button
+            type="button"
+            class="subtle icon-button"
+            title="Add Paint Mode"
+            aria-label="Add a paint mode to the ground face"
+            @click=${() => store.addFaceMode(s.sub, s.face)}
+          >${plusIcon(12)}</button>
+        </div>
+        ${face.modes.length === 0
+          ? html`<p class="placeholder">This face paints nothing yet.</p>`
+          : face.modes.map((mode, mi) =>
+            html`
+              <div class="mode">
+                <div class="mode-head">
+                  <label class="field"><span>Paint Mode</span><select
+                      @change=${(e: Event) =>
+                        store.setFaceMode(s.sub, s.face, mi, {
+                          type: (e.target as HTMLSelectElement)
+                            .value as GroundFaceModeType,
+                        })}
+                    >${MODE_TYPES.map(([value, label]) =>
+                      html`<option value=${value} .selected=${
+                        value === mode.type
+                      }>${label}</option>`
+                    )}</select></label>
+                  <button
+                    type="button"
+                    class="subtle icon-button"
+                    title="Remove Paint Mode"
+                    aria-label=${`Remove the ${mode.type} paint mode from the ground face`}
+                    @click=${() => store.removeFaceMode(s.sub, s.face, mi)}
+                  >${trashIcon(12)}</button>
+                </div>
+                <ce-icon-picker
+                  label="Texture"
+                  kind="gtex"
+                  .dir=${store.dir}
+                  .value=${mode.key}
+                  .autoOpen=${store.pendingTexturePick?.sub === s.sub &&
+                    store.pendingTexturePick.face === s.face &&
+                    store.pendingTexturePick.mode === mi}
+                  @opened=${() => store.clearTexturePick()}
+                  @change=${(e: CustomEvent<{ value: string }>) =>
+                    store.setFaceMode(s.sub, s.face, mi, {
+                      key: e.detail.value,
+                    })}
+                ></ce-icon-picker>
+                ${checkboxField(
+                  "Edit Texture Coordinates",
+                  mode.texCoords !== undefined,
+                  (own) => store.setOwnTexCoords(s.sub, s.face, mi, own),
+                )}
+                ${mode.texCoords
+                  ? mode.texCoords.map(([u, v], i) =>
+                    html`
+                      <div class="cols">
+                        ${numberField(
+                          `Vertex ${i + 1} U`,
+                          round(u),
+                          (n) =>
+                            edit((f) => {
+                              f.modes[mi].texCoords![i] = [n ?? 0, v];
+                            }, "Edit texture coordinates"),
+                        )}
+                        ${numberField(
+                          `Vertex ${i + 1} V`,
+                          round(v),
+                          (n) =>
+                            edit((f) => {
+                              f.modes[mi].texCoords![i] = [u, n ?? 0];
+                            }, "Edit texture coordinates"),
+                        )}
+                      </div>
+                    `
+                  )
+                  : null}
+              </div>
+            `
+          )}
+      </fieldset>
+      <details class="alignment" ?open=${alignmentUsed}>
+        <summary>Alignment</summary>
+        <p class="muted">Not checked in game.</p>
+        ${checkboxField(
+          "Loop",
+          face.loop !== false,
+          (v) =>
+            edit((f) => {
+              f.loop = v ? undefined : false;
+            }, "Set loop"),
+        )}
+        ${modeSelect(
+          "Offset Mode",
+          face.alignmentOffsetMode,
+          (v) =>
+            edit((f) => {
+              f.alignmentOffsetMode = v;
+            }, "Set offset mode"),
+        )}
+        ${pair(
+          "Offset",
+          face.alignmentOffset,
+          (v) =>
+            edit((f) => {
+              f.alignmentOffset = v;
+            }, "Set offset"),
+        )}
+        ${modeSelect(
+          "Direction Mode",
+          face.alignmentDirMode,
+          (v) =>
+            edit((f) => {
+              f.alignmentDirMode = v;
+            }, "Set direction mode"),
+        )}
+        ${pair(
+          "Direction",
+          face.alignmentDir,
+          (v) =>
+            edit((f) => {
+              f.alignmentDir = v;
+            }, "Set direction"),
+        )}
+        <button
+          type="button"
+          ?disabled=${!alignmentUsed}
+          title=${alignmentUsed
+            ? "Reset Alignment"
+            : "No alignment field is set"}
+          aria-label="Clear loop and every alignment field of the ground face"
+          @click=${() =>
+            edit((f) => {
+              delete f.loop;
+              delete f.alignmentOffsetMode;
+              delete f.alignmentOffset;
+              delete f.alignmentDirMode;
+              delete f.alignmentDir;
+            }, "Reset alignment")}
+        >Reset Alignment</button>
+      </details>
     `;
   }
 

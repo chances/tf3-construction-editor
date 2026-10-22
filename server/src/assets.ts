@@ -36,7 +36,7 @@ function posix(path: string): string {
   return path.split(SEPARATOR).join("/");
 }
 
-async function* walk(dir: string): AsyncGenerator<string> {
+export async function* walk(dir: string): AsyncGenerator<string> {
   let items: Deno.DirEntry[];
   try {
     items = [];

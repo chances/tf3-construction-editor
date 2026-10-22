@@ -397,8 +397,8 @@ const PLAN = [
       ],
       [
         "delete",
-        "Delete a placed model",
-        "A confirmation dialog appears, then the box is removed.",
+        "Delete a placed model with its trash button in the Scene tree, then again with the Delete key",
+        "The box is removed at once with no confirm dialog. Undo brings it back.",
       ],
     ],
   },
@@ -609,14 +609,256 @@ const PLAN = [
     ],
   },
   {
+    id: "p3-draw",
+    title: "Drawing Ground Faces",
+    intro:
+      "Phase 3. Needs an open construction with at least one model, so the surface shows. Restart dev first, since the server gained routes.",
+    steps: [
+      [
+        "poly",
+        "In the canvas toolbar, press the Ground Face tool (second icon in Tool). Click four points on empty ground, then click the first point",
+        "A dashed outline follows the pointer and the hint names the closing keys. The fourth click on the first point closes it into Ground Face 1 under the layer, and the texture list opens at once.",
+      ],
+      [
+        "enter",
+        "Press the Ground Face tool, click three points, then press Enter",
+        "The polygon closes into a face and the texture list opens. Esc before closing drops the half-drawn outline and returns to the Select tool.",
+      ],
+      [
+        "dbl",
+        "Press the Ground Face tool, click two points, then double-click a third spot",
+        "The face closes at the double-clicked point, with three points and no duplicate.",
+      ],
+      [
+        "cross",
+        "Press the Ground Face tool, click a bow-tie: points A, B, C, then a point D whose edge back from C crosses edge A to B",
+        "The click that would cross an earlier edge is ignored. No point is added.",
+      ],
+      [
+        "rect",
+        "Press the Rectangle tool (third icon) and drag a box on empty ground",
+        "A dashed box follows the drag. On release a four-point face appears and the texture list opens. A zero-width drag makes no face.",
+      ],
+      [
+        "empty",
+        "Open a construction with no models or faces, select its layer, and press Draw Ground Face in Properties",
+        "The surface shows its grid instead of the Add a Model prompt, so the first item can be a face. Esc brings the prompt back.",
+      ],
+      [
+        "winding",
+        "Draw a face by clicking its points clockwise",
+        "Vertices list in Properties runs counterclockwise: the order differs from the click order. No winding error shows under Problems.",
+      ],
+      [
+        "snap",
+        "Draw a face with Vertex and Edge snapping on. Click near a model corner, near a model outline corner, and near another face's vertex",
+        "The orange ring marks each snap and the point lands on the target. Holding Alt while clicking skips snapping.",
+      ],
+      [
+        "angle",
+        "Set Angle to 45 degrees and Grid to off, then click one point and aim the second anywhere",
+        "The edge from the first point snaps to a multiple of 45 degrees.",
+      ],
+      [
+        "pan",
+        "With a drawing tool armed, drag with the middle mouse button and scroll the wheel",
+        "The surface pans and zooms. A left click still adds points and never pans.",
+      ],
+    ],
+  },
+  {
+    id: "p3-edit",
+    title: "Editing Ground Faces",
+    intro:
+      "Phase 3. Needs a layer with two ground faces and a model. Select a face by clicking its body or its row in the Scene tree.",
+    steps: [
+      [
+        "select",
+        "Click a face on the surface, then click its row in the Scene tree",
+        "Vertex handles show, the row is highlighted, and Properties shows Face Label, Vertices, Paint Modes, and Alignment. Clicking empty ground clears the selection.",
+      ],
+      [
+        "movevertex",
+        "Drag one vertex handle, then press Undo once",
+        "The vertex follows the pointer and snaps. The whole drag is one undo step and the vertex returns to where it started.",
+      ],
+      [
+        "moveface",
+        "Drag the body of a face, then press Undo once",
+        "All vertices move together by the same shift. One undo step puts it back.",
+      ],
+      [
+        "flip",
+        "Drag a vertex across the polygon so the loop turns clockwise",
+        "The face keeps a valid fill, the dragged vertex stays under the pointer, and Problems shows no winding error.",
+      ],
+      [
+        "fields",
+        "In Vertices, change X and Y of one vertex with the number fields. The list has no Z column",
+        "The handle moves with the fields and the values persist after a reload. Each edit undoes on its own.",
+      ],
+      [
+        "addvertex",
+        "Pick a vertex (click its handle or focus its row), then press the plus in the Vertices heading",
+        "A new vertex appears halfway along the edge after the picked vertex and becomes the picked one. With none picked it splits the closing edge.",
+      ],
+      [
+        "delvertex",
+        "Pick a vertex and press its x button, or press Delete with the vertex picked",
+        "The vertex goes with no confirm dialog. Undo brings it back.",
+      ],
+      [
+        "min",
+        "Remove vertices from a face until three remain",
+        "Every x button is disabled and its tooltip says a ground face keeps 3 vertices.",
+      ],
+      [
+        "delface",
+        "Press the trash button on a face row, or select a face and press Delete",
+        "The face is removed at once with no confirm dialog, the selection clears, and Undo restores it.",
+      ],
+      [
+        "label",
+        "Type a Face Label and press Tab",
+        "The Scene row shows the label. Clearing it brings back Ground Face N.",
+      ],
+      [
+        "layerhide",
+        "Hide the layer with its eye toggle",
+        "Its faces and models leave the surface and the selection clears.",
+      ],
+      [
+        "zband",
+        "Place a model at Z 0, then set the Z band to 4 through 6",
+        "The model hides and the ground faces stay, since a face has no Z. Clear the band and the model returns.",
+      ],
+      [
+        "layerdel",
+        "Delete a layer that holds a selected face",
+        "The confirm dialog opens, the selection clears after confirming, and no error shows.",
+      ],
+    ],
+  },
+  {
+    id: "p3-paint",
+    title: "Paint Modes and Textures",
+    intro:
+      "Phase 3. Needs the install folder set so base game textures index. The picker is the Texture field under Paint Modes.",
+    steps: [
+      [
+        "list",
+        "Select a new face and look at the open Texture list",
+        "Rows show a thumbnail, the texture name, and its path. Thumbnails fill in as they load.",
+      ],
+      [
+        "search",
+        "Type asphalt 01 in mixed case",
+        "Only textures whose path holds both words show. Typing a game folder name matches too.",
+      ],
+      [
+        "pick",
+        "Pick asphalt_01",
+        "The field shows its thumbnail and name, Problems clears, and the face on the surface fills with a tiled preview of the texture.",
+      ],
+      [
+        "nopick",
+        "Close a new face's picker without choosing (Esc), then look at Problems",
+        "An error says to pick a ground texture. Export is blocked until one is set.",
+      ],
+      [
+        "typed",
+        "Type /nowhere/fake.gtex into the Texture field and press Tab",
+        "A message under the field says the texture is not in the game, this mod, or its dependencies.",
+      ],
+      [
+        "mask",
+        "Search for airfield and pick any result. If nothing matches, search for another texture whose name holds mask or field",
+        "A thumbnail shows or a plain tile shows. Neither breaks the list or the surface.",
+      ],
+      [
+        "type",
+        "Change Paint Mode from Fill to Stroke, Stroke Inner, and Stroke Outer in turn",
+        "The fill preview leaves and the outline shows as an edge highlight, each type in its own color and dash.",
+      ],
+      [
+        "addmode",
+        "Press the plus in the Paint Modes heading",
+        "A Stroke Outer mode is added below and its texture list opens.",
+      ],
+      [
+        "delmode",
+        "Press the trash button on a paint mode",
+        "The mode is removed at once with no confirm dialog, and Undo restores it.",
+      ],
+      [
+        "tex",
+        "Tick Edit Texture Coordinates on a mode",
+        "One U and V pair per vertex appears, starting at the automatic values. Untick it and they go away.",
+      ],
+      [
+        "texmove",
+        "With own coordinates on, add a vertex, then remove another",
+        "The coordinate rows follow the vertices, and the new one starts halfway between its neighbors.",
+      ],
+      [
+        "align",
+        "Expand Alignment, untick Loop, set Offset Mode to WORLD",
+        "With a Stroke mode, the closing edge stops drawing. Problems shows one warning that the fields are not checked in game. Reset Alignment clears every field and the warning.",
+      ],
+    ],
+  },
+  {
+    id: "p3-out",
+    title: "Ground Face Lint, Export, and Persistence",
+    intro: "Phase 3. Writes groundFaces into the .script.tl.",
+    steps: [
+      [
+        "bowtie",
+        "Edit vertices by their fields until two edges cross",
+        "Problems shows a warning that two edges cross. Export is not blocked by it.",
+      ],
+      [
+        "blocked",
+        "Export a construction with a face that has an empty texture key",
+        "The export is blocked and the error names the key.",
+      ],
+      [
+        "export",
+        "Give every face a texture and Export",
+        "The .script.tl holds groundFaces per layer: face points, modes with type and key, and texCoords with one pair per point (0 to 1 over the bounding box unless edited).",
+      ],
+      [
+        "nofaces",
+        "Export a construction that never had a face",
+        "The .script.tl has no groundFaces key.",
+      ],
+      [
+        "reload",
+        "Reload the page and reopen the construction",
+        "Faces, labels, modes, own coordinates, and alignment fields are identical. The face selection is not restored.",
+      ],
+      [
+        "restart",
+        "Stop and restart dev, then reopen",
+        "Nothing is lost, and the texture list and thumbnails still load.",
+      ],
+    ],
+  },
+  {
     id: "game",
     title: "In Game",
-    intro: "Open Verification Item 8. Only the game can answer this.",
+    intro:
+      "Open Verification Items 1 to 5 and 8. Only the game can answer these.",
     steps: [
       [
         "load",
         "Copy the exported mod into the game and start it",
         "The construction appears under its menu category and places without script errors.",
+      ],
+      [
+        "ground",
+        "Place a construction with a Fill face and a Stroke Outer face",
+        "The ground texture paints inside the face and the stroke paints a soft edge on the outside. Note whether the texture stretches over the face or tiles.",
       ],
     ],
   },

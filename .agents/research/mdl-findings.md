@@ -235,6 +235,28 @@ result.groundFaces = { {
 - `texCoords` may be omitted or empty (`constructionutil.lua`: `texCoords = {}`
   when not `withTexCoord`).
 
+Ground Face Fields (wiki `modding:constructions:basics`):
+
+- Face level: `face` (at least 3 points, counterclockwise, "the z value is
+  ignored"), `modes`, `loop` (`false` leaves the edge from the last to the first
+  point unstroked), `alignmentOffsetMode` and `alignmentDirMode` (`"OBJECT"` or
+  `"WORLD"`), `alignmentOffset` (x and y), `alignmentDir` (x and y, rotation is
+  `tan2(y, x)`).
+- Mode level: `type` (`FILL`, `STROKE`, `STROKE_INNER`, `STROKE_OUTER`), `key`
+  (relative to the `.con.lua`), `texCoords` (0.0 to 1.0, one per `face` point).
+- No `.lua` or `.tl` file in the base zips sets `loop` or an alignment field
+  (scan of 4,442 files), and the tealdef `GroundFace` record is empty, so the
+  wiki is the only source.
+
+Ground Texture Preview Files:
+
+- A single-material `.gtex.lua` lists its `.tmat` in `materialIndexMap`. A mask
+  `.gtex.lua` calls `tu.makeMaterialIndexTexture("<name>.tga", ...)`.
+- A `.tmat.lua` holds expressions such as `detailSize = 1 / 32` and `_("Name")`
+  calls, so the data-only table reader rejects it. Its image fields are
+  `previewIcon`, `icon`, and `detailColorTexture`, all relative to the `.tmat`
+  (`asphalt_01.tmat.lua` has `previewIcon = "asphalt_01_preview.tga"`).
+
 Related data sources for faces: scripts embed a `generatedData` table from the
 model editor, e.g. `depots/rail.zip` `rail/rail_maint_station.script.lua`:
 `["static"] = { curves = { ["ground_face"] = { { {14.3,7.05,0}, {14.3,-5.7,0}, {-15.5,-5.7,0}, {-15.5,7.05,0} } }, ["collider"] = {...} }, meshes = { ["equal"] = ..., ["greater"] = ... } }`.
@@ -329,6 +351,8 @@ scripts, warehouses.
 - Whether `.con.lua` in `buildings/` use `groundFaces` directly (only scripts
   were scanned by keyword; `buildings/**` .con.lua files did not match
   `groundFaces` in the scan).
-- Full wiki page
+- The wiki page
   https://wiki.transportfever3.com/doku.php?id=modding:constructions:groundtextures
-  does not mention groundFaces modes or texCoords.
+  does not mention groundFaces modes or texCoords. The page
+  https://wiki.transportfever3.com/doku.php?id=modding:constructions:basics does
+  (see Ground Face Fields in section 3).

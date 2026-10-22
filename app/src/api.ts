@@ -182,7 +182,24 @@ export const api = {
       "GET",
       `/mods/${enc(dir)}/images?q=${enc(q)}&limit=${limit}`,
     ),
+  gtex: (dir: string, q: string, limit = 50) =>
+    call<{ total: number; entries: GtexListing[] }>(
+      "GET",
+      `/mods/${enc(dir)}/gtex?q=${enc(q)}&limit=${limit}`,
+    ),
 };
+
+export interface GtexListing {
+  id: string;
+  name: string;
+  source: "base" | "mod" | "dependency";
+  modId?: string;
+}
+
+/** URL of a PNG preview of a ground texture, scaled to fit `size` pixels. */
+export function gtexImageUrl(dir: string, key: string, size = 64): string {
+  return `/api/mods/${enc(dir)}/gtex-image?key=${enc(key)}&size=${size}`;
+}
 
 export interface ImageListing {
   id: string;

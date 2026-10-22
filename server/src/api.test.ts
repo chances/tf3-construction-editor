@@ -315,6 +315,77 @@ Deno.test("api: an undecodable image is a 415 that names the image", async () =>
   });
 });
 
+async function modWithGtex(modsRoot: string) {
+  const handler = await modWithImages(modsRoot);
+  const folder = join(modsRoot, "demo_mod", "content", "ground", "pad");
+  await Deno.mkdir(folder, { recursive: true });
+  await Deno.writeTextFile(
+    join(folder, "pad.gtex.lua"),
+    'return { materialIndexMap = { "pad.tmat" } }',
+  );
+  await Deno.writeTextFile(
+    join(folder, "pad.tmat.lua"),
+    'return { previewIcon = "pad_preview.png", detailSize = 1 / 32 }',
+  );
+  await Deno.writeFile(
+    join(folder, "pad_preview.png"),
+    await encodePng({
+      width: 32,
+      height: 32,
+      data: new Uint8Array(32 * 32 * 4).fill(120),
+    }),
+  );
+  await Deno.writeTextFile(
+    join(folder, "bare.gtex.lua"),
+    "return { priority = 1 }",
+  );
+  return handler;
+}
+
+Deno.test("api: the gtex route searches ground textures by keyword", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithGtex(modsRoot);
+    const res = await call(
+      handler,
+      "GET",
+      "/api/mods/demo_mod/gtex?q=PAD.GTEX",
+    );
+    assertEquals(res.status, 200);
+    assertEquals(res.body.total, 2);
+    assertEquals(
+      res.body.entries.map((e: { id: string; name: string }) => [e.id, e.name]),
+      [["/ground/pad/pad.gtex", "pad"]],
+    );
+    assertEquals(res.body.entries[0].source, "mod");
+  });
+});
+
+Deno.test("api: the gtex-image route serves the material's preview PNG", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithGtex(modsRoot);
+    const res = await handler(
+      new Request(
+        "http://localhost/api/mods/demo_mod/gtex-image?key=%2Fground%2Fpad%2Fpad.gtex&size=16",
+      ),
+    );
+    assertEquals(res.status, 200);
+    assertEquals(res.headers.get("content-type"), "image/png");
+  });
+});
+
+Deno.test("api: a ground texture with no preview is a 404 that names the key", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithGtex(modsRoot);
+    const res = await call(
+      handler,
+      "GET",
+      "/api/mods/demo_mod/gtex-image?key=%2Fground%2Fpad%2Fbare.gtex",
+    );
+    assertEquals(res.status, 404);
+    assert(String(res.body.error).includes("/ground/pad/bare.gtex"));
+  });
+});
+
 Deno.test("api: an unknown route says which route was not found", async () => {
   await withTempDir(async (modsRoot) => {
     const handler = createHandler(config(modsRoot));

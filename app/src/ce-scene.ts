@@ -212,15 +212,49 @@ export class CeScene extends observer(LitElement) {
                                   title="Remove Model"
                                   aria-label=${`Remove the ${
                                     modelNames(m.id).title
-                                  } model from the layer after you confirm`}
-                                  @click=${() =>
-                                    store.requestRemoveModel(si, mi)}
+                                  } model from the layer`}
+                                  @click=${() => store.removeModel(si, mi)}
                                 >
                                   ${trashIcon(12)}
                                 </button>
                               </div>
                             </li>
                           `,
+                      )}
+                      ${(sub.groundFaces ?? []).map(
+                        (face, fi) => {
+                          const name = face.label ?? `Ground Face ${fi + 1}`;
+                          return html`
+                            <li>
+                              <div class="row">
+                                <button
+                                  class="item"
+                                  aria-current=${String(
+                                    store.faceSelection?.sub === si &&
+                                      store.faceSelection.face === fi,
+                                  )}
+                                  @click=${() =>
+                                    store.selectFace({
+                                      sub: si,
+                                      face: fi,
+                                      vertex: null,
+                                    })}
+                                >
+                                  ${name}
+                                </button>
+                                <button
+                                  type="button"
+                                  class="subtle delete"
+                                  title="Remove Ground Face"
+                                  aria-label=${`Remove the ground face ${name} from the layer`}
+                                  @click=${() => store.removeFace(si, fi)}
+                                >
+                                  ${trashIcon(12)}
+                                </button>
+                              </div>
+                            </li>
+                          `;
+                        },
                       )}
                     </ul>
                   </li>

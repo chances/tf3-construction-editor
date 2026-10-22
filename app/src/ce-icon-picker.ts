@@ -1,6 +1,6 @@
 import { css, html, LitElement } from "lit";
 import { missingImageMessage } from "@cedit/schema";
-import { api, type ImageListing, imageUrl } from "./api.ts";
+import { api, gtexImageUrl, imageUrl } from "./api.ts";
 import { folderIcon, imageIcon } from "./icons.ts";
 import { basename, extname } from "@std/path/posix";
 import {
@@ -27,6 +27,8 @@ export class CeIconPicker extends LitElement {
     label: { type: String },
     value: { type: String },
     dir: { type: String },
+    kind: { type: String },
+    autoOpen: { type: Boolean },
     open: { state: true },
     text: { state: true },
     results: { state: true },
@@ -165,9 +167,13 @@ export class CeIconPicker extends LitElement {
   declare label: string;
   declare value: string;
   declare dir: string;
+  /** `image` lists the game's images. `gtex` lists its ground textures. */
+  declare kind: "image" | "gtex";
+  /** Focuses the field when it first renders, which opens the list. */
+  declare autoOpen: boolean;
   declare open: boolean;
   declare text: string;
-  declare results: ImageListing[];
+  declare results: { id: string }[];
   /** Folders that complete the typed path. They sit above the images. */
   declare folders: string[];
   declare active: number;
@@ -191,6 +197,8 @@ export class CeIconPicker extends LitElement {
     this.label = "";
     this.value = "";
     this.dir = "";
+    this.kind = "image";
+    this.autoOpen = false;
     this.open = false;
     this.text = "";
     this.results = [];
@@ -203,10 +211,17 @@ export class CeIconPicker extends LitElement {
     this.frame = { left: 0, width: 0, edge: 0 };
   }
 
+  /** What the list holds, in the words of its messages. */
+  get #noun(): string {
+    return this.kind === "gtex" ? "ground textures" : "images";
+  }
+
   async #search(query: string) {
     const ticket = ++this.#sequence;
     try {
-      const found = await api.images(this.dir, query, ROW_LIMIT);
+      const found = this.kind === "gtex"
+        ? { ...(await api.gtex(this.dir, query, ROW_LIMIT)), folders: [] }
+        : await api.images(this.dir, query, ROW_LIMIT);
       if (ticket !== this.#sequence) return;
       this.results = found.entries;
       this.folders = found.folders ?? [];
@@ -217,7 +232,7 @@ export class CeIconPicker extends LitElement {
       this.results = [];
       this.folders = [];
       this.active = -1;
-      this.failed = `Could not list images. ${(error as Error).message}`;
+      this.failed = `Could not list ${this.#noun}. ${(error as Error).message}`;
     }
   }
 
@@ -245,7 +260,9 @@ export class CeIconPicker extends LitElement {
         loading="lazy"
         width=${size}
         height=${size}
-        src=${imageUrl(this.dir, id, size * 2)}
+        src=${this.kind === "gtex"
+          ? gtexImageUrl(this.dir, id, size * 2)
+          : imageUrl(this.dir, id, size * 2)}
         @error=${() => {
           this.broken = new Set(this.broken).add(id);
         }}
@@ -341,6 +358,17 @@ export class CeIconPicker extends LitElement {
       return;
     }
     try {
+      if (this.kind === "gtex") {
+        const found = await api.gtex(this.dir, id, 5);
+        if (ticket !== this.#checked) return;
+        const exact = found.entries.some((e) =>
+          e.id.toLowerCase() === id.toLowerCase()
+        );
+        this.problem = found.total === 0 || exact
+          ? ""
+          : `${id} is not a ground texture in the game, this mod, or its dependencies. Pick one from the list.`;
+        return;
+      }
       const found = await api.images(this.dir, id, 1);
       if (ticket !== this.#checked) return;
       // A server that predates `exact` cannot tell, so it raises no error.
@@ -398,6 +426,13 @@ export class CeIconPicker extends LitElement {
   }
 
   protected override updated(changed: Map<string, unknown>) {
+    if (changed.has("autoOpen") && this.autoOpen) {
+      // Focusing the field opens the list. The owner learns the request is met.
+      this.renderRoot.querySelector("input")?.focus();
+      this.dispatchEvent(
+        new CustomEvent("opened", { bubbles: true, composed: true }),
+      );
+    }
     if (!changed.has("open")) return;
     if (this.open) {
       this.#place();
@@ -430,7 +465,7 @@ export class CeIconPicker extends LitElement {
             aria-describedby=${!this.open && this.problem ? "problem" : ""}
             autocomplete="off"
             spellcheck="false"
-            placeholder="Search images"
+            placeholder=${`Search ${this.#noun}`}
             .value=${shown}
             @focus=${() => this.#openList()}
             @input=${(e: Event) => {
@@ -498,7 +533,9 @@ export class CeIconPicker extends LitElement {
         this.folders.length + i,
         row.id,
         this.#show(row.id, 40),
-        basename(row.id),
+        this.kind === "gtex"
+          ? basename(row.id, extname(row.id))
+          : basename(row.id),
         () => this.#pick(row.id),
         row.id === this.value,
       )
@@ -522,7 +559,7 @@ export class CeIconPicker extends LitElement {
         ${this.failed
           ? html`<li class="error">${this.failed}</li>`
           : empty
-          ? html`<li class="none">No images match.</li>`
+          ? html`<li class="none">No ${this.#noun} match.</li>`
           : [...folders, ...images]}
       </ul>
     `;

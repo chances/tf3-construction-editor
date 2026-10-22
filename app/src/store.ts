@@ -5,13 +5,25 @@ import {
   composeTransf,
   type ConstructionDoc,
   decomposeTransf,
+  type GroundFaceDoc,
+  type GroundFaceMode,
   type Issue,
-  modelNames,
+  MIN_FACE_POINTS,
   type ModInfoJson,
   type ModJson,
+  newGroundFace,
   newSubconstruction,
   type PositionYaw,
+  rectanglePoints,
+  signedArea,
+  type Vec2,
 } from "@cedit/schema";
+import {
+  insertVertex,
+  normalizeWinding,
+  removeVertex,
+  setOwnTexCoords,
+} from "./face-edit.ts";
 import {
   canonicalFilters,
   filterCount,
@@ -39,6 +51,23 @@ export interface Selection {
   model: number;
 }
 
+/** A ground face, and the vertex picked on it, if any. */
+export interface FaceSelection {
+  sub: number;
+  face: number;
+  vertex: number | null;
+}
+
+/** The canvas tool: pick items, click a polygon, or drag a rectangle. */
+export type Tool = "select" | "face" | "rect";
+
+/** The paint mode whose texture picker should open as soon as it renders. */
+export interface TexturePick {
+  sub: number;
+  face: number;
+  mode: number;
+}
+
 export interface PlacementPatch {
   x?: number;
   y?: number;
@@ -62,7 +91,7 @@ const INDEXING_MESSAGE = "Indexing base game and mod models…";
 export type View = "mods" | "details" | "constructions" | "editor";
 
 /** What the Properties section shows. */
-export type InspectTarget = "construction" | "layer" | "model";
+export type InspectTarget = "construction" | "layer" | "model" | "face";
 
 export class EditorStore {
   view: View = "mods";
@@ -74,6 +103,11 @@ export class EditorStore {
   loaded: LoadedMod | null = null;
   doc: ConstructionDoc | null = null;
   selection: Selection | null = null;
+  faceSelection: FaceSelection | null = null;
+  tool: Tool = "select";
+  /** Points of the polygon being clicked out, before it closes into a face. */
+  faceDraft: [number, number][] = [];
+  pendingTexturePick: TexturePick | null = null;
   activeSub = 0;
   assets: AssetListing[] = [];
   assetTotal = 0;
@@ -190,6 +224,21 @@ export class EditorStore {
   /** True once any layer holds a model. */
   get hasModels(): boolean {
     return this.doc?.subconstructions.some((s) => s.models.length > 0) ?? false;
+  }
+
+  /** True once any layer holds a model or a ground face. */
+  get hasContent(): boolean {
+    return this.hasModels ||
+      (this.doc?.subconstructions.some((s) =>
+        (s.groundFaces?.length ?? 0) > 0
+      ) ??
+        false);
+  }
+
+  get selectedFace(): GroundFaceDoc | null {
+    const s = this.faceSelection;
+    if (!s || !this.doc) return null;
+    return this.doc.subconstructions[s.sub]?.groundFaces?.[s.face] ?? null;
   }
 
   /** The eyedropper is armed and the scene has a model to pick. */
@@ -341,7 +390,10 @@ export class EditorStore {
       constructionId: this.doc?.id ?? null,
       selection: this.selection ? { ...this.selection } : null,
       activeSub: this.activeSub,
-      inspectTarget: this.inspectTarget,
+      // A face selection is not saved, so a face inspector falls back to the layer.
+      inspectTarget: this.inspectTarget === "face"
+        ? "layer"
+        : this.inspectTarget,
       snap: { ...this.snap },
       zBand: { ...this.zBand },
       canvas: { ...this.canvas },
@@ -657,18 +709,6 @@ export class EditorStore {
     removal?.run();
   }
 
-  /** Opens the removal confirmation for a model on a layer. */
-  requestRemoveModel(sub: number, model: number) {
-    const placement = this.doc?.subconstructions[sub]?.models[model];
-    if (!placement) return;
-    this.requestRemoval({
-      title: "Remove Model",
-      name: modelNames(placement.id).title,
-      note: "Undo brings the item back.",
-      run: () => this.removeModel(sub, model),
-    });
-  }
-
   /** Opens the delete confirmation for a layer. A construction keeps one. */
   requestDeleteLayer(sub: number) {
     const layers = this.doc?.subconstructions;
@@ -693,12 +733,15 @@ export class EditorStore {
     }, { label: "Delete layer" });
     if (s?.sub === sub) this.selection = null;
     else if (s && s.sub > sub) this.selection = { ...s, sub: s.sub - 1 };
+    const f = this.faceSelection;
+    if (f?.sub === sub) this.faceSelection = null;
+    else if (f && f.sub > sub) this.faceSelection = { ...f, sub: f.sub - 1 };
     if (this.activeSub > sub) this.activeSub -= 1;
     this.activeSub = Math.min(
       this.activeSub,
       this.doc.subconstructions.length - 1,
     );
-    if (wasActive || this.selection === null) {
+    if (wasActive || (this.selection === null && this.faceSelection === null)) {
       this.inspectTarget = "construction";
     }
   }
@@ -764,6 +807,9 @@ export class EditorStore {
         runInAction(() => {
           this.doc = doc;
           this.selection = null;
+          this.faceSelection = null;
+          this.tool = "select";
+          this.faceDraft = [];
           this.inspectTarget = "construction";
           this.activeSub = 0;
           this.exportOutcome = null;
@@ -879,6 +925,17 @@ export class EditorStore {
     if (s && !this.doc!.subconstructions[s.sub]?.models[s.model]) {
       this.selection = null;
     }
+    const f = this.faceSelection;
+    if (f && !this.doc!.subconstructions[f.sub]?.groundFaces?.[f.face]) {
+      this.faceSelection = null;
+      if (this.inspectTarget === "face") this.inspectTarget = "construction";
+    } else if (
+      f?.vertex != null &&
+      f.vertex >= this.doc!.subconstructions[f.sub].groundFaces![f.face].points
+          .length
+    ) {
+      this.faceSelection = { ...f, vertex: null };
+    }
     if (this.activeSub >= this.doc!.subconstructions.length) {
       this.activeSub = 0;
     }
@@ -960,6 +1017,7 @@ export class EditorStore {
     if (!this.doc) return;
     this.doc.subconstructions[sub].hidden = hidden || undefined;
     if (hidden && this.selection?.sub === sub) this.selection = null;
+    if (hidden && this.faceSelection?.sub === sub) this.selectFace(null);
     this.#scheduleSave();
   }
 
@@ -1102,6 +1160,7 @@ export class EditorStore {
   /** Selects a model, or clears the selection and shows the construction. */
   select(selection: Selection | null) {
     this.selection = selection;
+    this.faceSelection = null;
     this.inspectTarget = selection ? "model" : "construction";
     if (selection) this.activeSub = selection.sub;
   }
@@ -1109,14 +1168,197 @@ export class EditorStore {
   /** Selects a layer in the scene tree. */
   selectLayer(sub: number) {
     this.selection = null;
+    this.faceSelection = null;
     this.activeSub = sub;
     this.inspectTarget = "layer";
+  }
+
+  /** Selects a ground face, or clears the selection and shows the construction. */
+  selectFace(selection: FaceSelection | null) {
+    this.selection = null;
+    this.faceSelection = selection;
+    this.inspectTarget = selection ? "face" : "construction";
+    if (selection) this.activeSub = selection.sub;
+  }
+
+  /** Picks the vertex of the selected face that the Inspector and keys act on. */
+  selectVertex(vertex: number | null) {
+    if (this.faceSelection) {
+      this.faceSelection = { ...this.faceSelection, vertex };
+    }
+  }
+
+  /** Arms a canvas tool. Switching tools drops a polygon that is half drawn. */
+  setTool(tool: Tool) {
+    this.tool = tool;
+    this.faceDraft = [];
+  }
+
+  addDraftPoint(point: [number, number]) {
+    this.faceDraft = [...this.faceDraft, point];
+  }
+
+  /** Closes the clicked polygon into a face. Fewer than 3 points is dropped. */
+  closeDraft() {
+    const points = this.faceDraft.map(([x, y]): Vec2 => [x, y]);
+    this.faceDraft = [];
+    if (points.length >= 3) this.addGroundFace(points);
+    else this.tool = "select";
+  }
+
+  /**
+   * Adds a face with one empty FILL mode to the active layer, selects it, and
+   * asks its texture picker to open. The points are made counterclockwise.
+   */
+  addGroundFace(points: Vec2[]) {
+    if (!this.doc) return;
+    const sub = Math.min(this.activeSub, this.doc.subconstructions.length - 1);
+    const face = newGroundFace(points);
+    let index = 0;
+    this.edit((doc) => {
+      // Read the array back after assigning it: the document is observable, and
+      // the value of `??=` is the plain array before it is wrapped.
+      const layer = doc.subconstructions[sub];
+      layer.groundFaces ??= [];
+      layer.groundFaces.push(face);
+      index = layer.groundFaces.length - 1;
+    }, { label: "Add ground face" });
+    this.tool = "select";
+    this.faceDraft = [];
+    this.selectFace({ sub, face: index, vertex: null });
+    this.pendingTexturePick = { sub, face: index, mode: 0 };
+  }
+
+  addRectangle(a: [number, number], b: [number, number]) {
+    if (a[0] === b[0] || a[1] === b[1]) {
+      this.tool = "select";
+      return;
+    }
+    this.addGroundFace(rectanglePoints(a, b));
+  }
+
+  /** The picker calls this once it has opened for the pick it was asked for. */
+  clearTexturePick() {
+    this.pendingTexturePick = null;
+  }
+
+  /** Runs `change` on one ground face as an edit that can undo. */
+  editFace(
+    sub: number,
+    face: number,
+    change: (face: GroundFaceDoc) => void,
+    options: { label?: string; mergeKey?: string } = {},
+  ) {
+    this.edit((doc) => {
+      const target = doc.subconstructions[sub]?.groundFaces?.[face];
+      if (target) change(target);
+    }, options);
+  }
+
+  /**
+   * Replaces a face's points, as when a vertex or the whole face is dragged.
+   * Calls inside one gesture merge. A drag that turns the polygon clockwise
+   * reverses it, so the result says where `vertex` ended up and whether the
+   * points were reversed.
+   */
+  setFacePoints(
+    sub: number,
+    face: number,
+    points: Vec2[],
+    vertex = 0,
+  ): { vertex: number; reversed: boolean } {
+    let result = { vertex, reversed: false };
+    this.editFace(sub, face, (f) => {
+      f.points = points.map((p): Vec2 => [p[0], p[1]]);
+      const reversed = f.points.length >= MIN_FACE_POINTS &&
+        signedArea(f.points) < 0;
+      result = { vertex: normalizeWinding(f, vertex), reversed };
+    }, { label: "Move ground face", mergeKey: `face:${sub}:${face}` });
+    const s = this.faceSelection;
+    if (s && s.sub === sub && s.face === face && s.vertex !== null) {
+      this.faceSelection = { ...s, vertex: result.vertex };
+    }
+    return result;
+  }
+
+  addFaceVertex(sub: number, face: number, after: number) {
+    let at = after;
+    this.editFace(sub, face, (f) => {
+      at = insertVertex(f, after);
+    }, { label: "Add vertex" });
+    this.selectVertex(at);
+  }
+
+  /** Removes one vertex. It needs no confirmation, and undo brings it back. */
+  removeFaceVertex(sub: number, face: number, index: number) {
+    this.editFace(sub, face, (f) => removeVertex(f, index), {
+      label: "Remove vertex",
+    });
+    this.selectVertex(null);
+  }
+
+  /** Removes one ground face. It needs no confirmation, and undo restores it. */
+  removeFace(sub: number, face: number) {
+    const s = this.faceSelection;
+    this.edit((doc) => {
+      doc.subconstructions[sub].groundFaces?.splice(face, 1);
+      if (doc.subconstructions[sub].groundFaces?.length === 0) {
+        delete doc.subconstructions[sub].groundFaces;
+      }
+    }, { label: "Remove ground face" });
+    if (s?.sub !== sub) return;
+    if (s.face === face) this.selectFace(null);
+    else if (s.face > face) this.faceSelection = { ...s, face: s.face - 1 };
+  }
+
+  removeSelectedFace() {
+    const s = this.faceSelection;
+    if (s) this.removeFace(s.sub, s.face);
+  }
+
+  addFaceMode(sub: number, face: number) {
+    let index = 0;
+    this.editFace(sub, face, (f) => {
+      f.modes.push({ type: "STROKE_OUTER", key: "" });
+      index = f.modes.length - 1;
+    }, { label: "Add paint mode" });
+    this.pendingTexturePick = { sub, face, mode: index };
+  }
+
+  setFaceMode(
+    sub: number,
+    face: number,
+    mode: number,
+    patch: Partial<Pick<GroundFaceMode, "type" | "key">>,
+  ) {
+    this.editFace(sub, face, (f) => Object.assign(f.modes[mode], patch), {
+      label: "Edit paint mode",
+    });
+  }
+
+  /** Removes one paint mode. It needs no confirmation, and undo restores it. */
+  removeFaceMode(sub: number, face: number, mode: number) {
+    this.editFace(sub, face, (f) => f.modes.splice(mode, 1), {
+      label: "Remove paint mode",
+    });
+  }
+
+  setOwnTexCoords(sub: number, face: number, mode: number, own: boolean) {
+    this.editFace(sub, face, (f) => setOwnTexCoords(f, mode, own), {
+      label: own ? "Edit texture coordinates" : "Use automatic coordinates",
+    });
+  }
+
+  /** A face has no Z, so the Z band never hides it. Only its layer can. */
+  isFaceVisible(sub: number): boolean {
+    const layer = this.doc?.subconstructions[sub];
+    return layer !== undefined && !layer.hidden;
   }
 
   removeSelected() {
     const s = this.selection;
     if (!s) return;
-    this.requestRemoveModel(s.sub, s.model);
+    this.removeModel(s.sub, s.model);
   }
 
   /** Removes one model from a layer and keeps the selection on the same model. */

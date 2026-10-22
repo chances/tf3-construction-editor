@@ -3,6 +3,8 @@ export type Mat4 = number[];
 
 export type Vec3 = [number, number, number];
 
+export type Vec2 = [number, number];
+
 export type Severity = "None" | "Warning" | "Critical";
 
 export interface ModRef {
@@ -95,6 +97,43 @@ export interface ModelPlacement {
   tag?: string;
 }
 
+export type GroundFaceModeType =
+  | "FILL"
+  | "STROKE"
+  | "STROKE_INNER"
+  | "STROKE_OUTER";
+
+export type AlignmentMode = "OBJECT" | "WORLD";
+
+/** One paint entry of a ground face. */
+export interface GroundFaceMode {
+  type: GroundFaceModeType;
+  /** Ground texture path without `.lua`, for example `/terrain/materials/asphalt_02/asphalt_02.gtex`. */
+  key: string;
+  /**
+   * One `[u, v]` per face point. Omitted means automatic: normalized 0..1 over
+   * the face bounding box.
+   */
+  texCoords?: [number, number][];
+}
+
+export interface GroundFaceDoc {
+  /** Editor-only name. Never exported. */
+  label?: string;
+  /**
+   * Counterclockwise polygon, construction-local meters. A face has no Z: the
+   * game ignores it, and export writes 0.
+   */
+  points: Vec2[];
+  modes: GroundFaceMode[];
+  /** `false` leaves the edge between the last and first point unstroked. */
+  loop?: boolean;
+  alignmentOffsetMode?: AlignmentMode;
+  alignmentOffset?: [number, number];
+  alignmentDirMode?: AlignmentMode;
+  alignmentDir?: [number, number];
+}
+
 export interface SubconstructionDoc {
   /** Editor-only name. Never exported. */
   label?: string;
@@ -103,6 +142,7 @@ export interface SubconstructionDoc {
   /** Editor-only layer visibility. Never exported. */
   hidden?: boolean;
   models: ModelPlacement[];
+  groundFaces?: GroundFaceDoc[];
 }
 
 export interface ConstructionDescription {

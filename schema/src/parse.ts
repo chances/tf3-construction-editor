@@ -1,6 +1,10 @@
 import { isMat4 } from "./transform.ts";
 import type {
+  AlignmentMode,
   ConstructionDoc,
+  GroundFaceDoc,
+  GroundFaceMode,
+  GroundFaceModeType,
   ModelPlacement,
   ModInfoJson,
   ModJson,
@@ -85,6 +89,77 @@ function parsePlacement(value: unknown, path: string): ModelPlacement {
   return placement;
 }
 
+function pair(value: unknown, path: string): [number, number] {
+  const a = arr(value, path);
+  if (a.length !== 2) throw new SchemaError(path, "expected 2 numbers");
+  return [num(a[0], `${path}.0`), num(a[1], `${path}.1`)];
+}
+
+function alignmentMode(value: unknown, path: string): AlignmentMode {
+  if (value !== "OBJECT" && value !== "WORLD") {
+    throw new SchemaError(path, 'expected "OBJECT" or "WORLD"');
+  }
+  return value;
+}
+
+const MODE_TYPES: GroundFaceModeType[] = [
+  "FILL",
+  "STROKE",
+  "STROKE_INNER",
+  "STROKE_OUTER",
+];
+
+function parseGroundFace(value: unknown, path: string): GroundFaceDoc {
+  const o = obj(value, path);
+  const face: GroundFaceDoc = {
+    points: arr(o.points, `${path}.points`).map((p, i) =>
+      pair(p, `${path}.points.${i}`)
+    ),
+    modes: arr(o.modes, `${path}.modes`).map((m, i) => {
+      const mp = `${path}.modes.${i}`;
+      const mo = obj(m, mp);
+      const type = str(mo.type, `${mp}.type`) as GroundFaceModeType;
+      if (!MODE_TYPES.includes(type)) {
+        throw new SchemaError(`${mp}.type`, `expected one of ${MODE_TYPES}`);
+      }
+      const mode: GroundFaceMode = { type, key: str(mo.key, `${mp}.key`) };
+      if (mo.texCoords !== undefined) {
+        mode.texCoords = arr(mo.texCoords, `${mp}.texCoords`).map((t, k) =>
+          pair(t, `${mp}.texCoords.${k}`)
+        );
+      }
+      return mode;
+    }),
+  };
+  const label = optStr(o, "label", path);
+  if (label !== undefined) face.label = label;
+  if (o.loop !== undefined) {
+    if (typeof o.loop !== "boolean") {
+      throw new SchemaError(`${path}.loop`, "expected a boolean");
+    }
+    face.loop = o.loop;
+  }
+  if (o.alignmentOffsetMode !== undefined) {
+    face.alignmentOffsetMode = alignmentMode(
+      o.alignmentOffsetMode,
+      `${path}.alignmentOffsetMode`,
+    );
+  }
+  if (o.alignmentOffset !== undefined) {
+    face.alignmentOffset = pair(o.alignmentOffset, `${path}.alignmentOffset`);
+  }
+  if (o.alignmentDirMode !== undefined) {
+    face.alignmentDirMode = alignmentMode(
+      o.alignmentDirMode,
+      `${path}.alignmentDirMode`,
+    );
+  }
+  if (o.alignmentDir !== undefined) {
+    face.alignmentDir = pair(o.alignmentDir, `${path}.alignmentDir`);
+  }
+  return face;
+}
+
 function parseSubconstruction(
   value: unknown,
   path: string,
@@ -95,6 +170,11 @@ function parseSubconstruction(
       parsePlacement(m, `${path}.models.${i}`)
     ),
   };
+  if (o.groundFaces !== undefined) {
+    sub.groundFaces = arr(o.groundFaces, `${path}.groundFaces`).map((f, i) =>
+      parseGroundFace(f, `${path}.groundFaces.${i}`)
+    );
+  }
   const label = optStr(o, "label", path);
   if (label !== undefined) sub.label = label;
   const tag = optNum(o, "tag", path);

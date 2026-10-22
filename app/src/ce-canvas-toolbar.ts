@@ -1,4 +1,5 @@
 import { css, html, LitElement } from "lit";
+import { live } from "lit/directives/live.js";
 import { observer } from "./observer.ts";
 import { ANGLE_STEPS, GRID_STEPS } from "./snapping.ts";
 import { store } from "./state.ts";
@@ -9,10 +10,12 @@ import {
   gridIcon,
   infinityIcon,
   magnetIcon,
+  polygonIcon,
   vertexIcon,
   zBandIcon,
 } from "./icons.ts";
 import "./ce-range-slider.ts";
+import "./ce-toggle-button.ts";
 import type { RangeChange } from "./ce-range-slider.ts";
 
 /** Z extent shown when no model is placed. */
@@ -48,6 +51,11 @@ export class CeCanvasToolbar extends observer(LitElement) {
         flex: 1 1 auto;
         gap: 0.5rem;
         justify-content: space-between;
+        padding-inline-end: 0.5rem;
+      }
+      .controls__group.tools {
+        flex: none;
+        justify-content: flex-start;
         padding-inline-end: 0.5rem;
       }
       .controls__group > :not(.controls__label) {
@@ -121,6 +129,31 @@ export class CeCanvasToolbar extends observer(LitElement) {
     const band = store.zBand;
     const extent = this.#zExtent();
     return html`
+      <div class="controls__group tools">
+        <span class="controls__label">${polygonIcon(14)} Tool</span>
+        ${([
+          ["select", "pointer", "Select", "Select and move items"],
+          ["face", "polygon", "Ground Face", "Click out a ground face polygon"],
+          [
+            "rect",
+            "rectangle",
+            "Ground Face Rectangle",
+            "Drag a rectangular ground face",
+          ],
+        ] as const).map(([tool, icon, title, label]) =>
+          html`
+            <ce-toggle-button
+              variant="icon subtle"
+              icon=${icon}
+              title=${title}
+              label=${label}
+              .pressed=${live(store.tool === tool)}
+              @change=${() =>
+                store.setTool(store.tool === tool ? "select" : tool)}
+            ></ce-toggle-button>
+          `
+        )}
+      </div>
       <div class="controls__group">
         <span class="controls__label">${magnetIcon(14)} Snapping</span>
         <label>${gridIcon(14)} Grid <select @change=${(e: Event) => {

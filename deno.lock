@@ -12,6 +12,7 @@
     "npm:@types/pluralize@*": "0.0.33",
     "npm:fflate@0.8.2": "0.8.2",
     "npm:lit@^3.3.3": "3.3.3",
+    "npm:lucide@*": "1.57.0",
     "npm:lucide@1.57.0": "1.57.0",
     "npm:lucide@^1.57.0": "1.57.0",
     "npm:mobx@^7.0.6": "7.0.6",

@@ -51,10 +51,27 @@ export class CeApp extends observer(LitElement) {
     } else if (mod && key === "y") {
       event.preventDefault();
       store.redo();
+    } else if (key === "escape") {
+      if (store.tool !== "select") {
+        event.preventDefault();
+        store.setTool("select");
+      }
+    } else if (key === "enter") {
+      if (store.tool === "face" && store.faceDraft.length > 0) {
+        event.preventDefault();
+        store.closeDraft();
+      }
     } else if (key === "delete" || key === "backspace") {
+      const face = store.faceSelection;
       if (store.selection) {
         event.preventDefault();
         store.removeSelected();
+      } else if (face?.vertex != null) {
+        event.preventDefault();
+        store.removeFaceVertex(face.sub, face.face, face.vertex);
+      } else if (face) {
+        event.preventDefault();
+        store.removeSelectedFace();
       }
     } else if (key.startsWith("arrow") && store.selectedPlacement) {
       event.preventDefault();

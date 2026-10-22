@@ -5,7 +5,7 @@ constructions of one mod and exports them into the mod folder as `.con.lua` and
 `.script.tl` files. The plan is `.agents/plans/construction-editor-v1.md`. Read
 it before changing scope.
 
-The manual test plan for phases 1 and 2 is `tests/plans/v1-manual-tests.html`,
+The manual test plan for phases 1 to 3 is `tests/plans/v1-manual-tests.html`,
 published as the V1 Manual Tests artifact
 (<https://claude.ai/artifact/REDHFz2QJKd28NsWUQjDjm>). Republish to that URL to
 update it.
@@ -79,13 +79,15 @@ Run from the repo root.
   Construction) before the three-pane editor page (Assets, surface, Inspector),
   no nested group boxes, empty panes show a filling placeholder, icon-only
   buttons carry a short `title` and a different, descriptive `aria-label` (never
-  equal), every delete and removal confirms in the one modal
-  (`ce-confirm-dialog`) whether it removes a construction, a layer, a model, or
-  a mod list entry (author, dependency, incompatibility), and icons come from
-  Lucide through `app/src/icons.ts`. A new surface that shows existing items
-  carries over their treatments (zone colors, loading and empty states, the
-  squared edge where it joins a field). A heading's actions are as tall as the
-  Scene heading actions (`1.5rem`), so the heading never grows.
+  equal), a removal that undo restores (a model, a ground face, a paint mode, a
+  vertex) skips the dialog, every removal of a container or of something undo
+  cannot restore confirms in the one modal (`ce-confirm-dialog`): a
+  construction, a layer, or a mod list entry (author, dependency,
+  incompatibility), and icons come from Lucide through `app/src/icons.ts`. A new
+  surface that shows existing items carries over their treatments (zone colors,
+  loading and empty states, the squared edge where it joins a field). A
+  heading's actions are as tall as the Scene heading actions (`1.5rem`), so the
+  heading never grows.
 - A control that almost fits a new need is generalized with a prop, never
   copied: `ce-range-slider` serves years and the Z band through `step`,
   `openStart`, and `openIcon`. A control used in a vertically tight place (the

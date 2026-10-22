@@ -17,8 +17,11 @@ import {
   Infinity as InfinityNode,
   LoaderCircle,
   Magnet,
+  MousePointer2,
+  Pentagon,
   Pipette,
   Plus,
+  RectangleHorizontal,
   Redo2,
   Search,
   Slash,
@@ -89,10 +92,17 @@ export const eyeClosedIcon = (size = 16) => lucideIcon(EyeClosed, size);
 export const pipetteIcon = (size = 16) => lucideIcon(Pipette, size);
 export const searchIcon = (size = 16) => lucideIcon(Search, size);
 export const filtersIcon = (size = 16) => lucideIcon(SlidersHorizontal, size);
+export const pointerIcon = (size = 16) => lucideIcon(MousePointer2, size);
+export const polygonIcon = (size = 16) => lucideIcon(Pentagon, size);
+export const rectangleIcon = (size = 16) =>
+  lucideIcon(RectangleHorizontal, size);
 
 /** Icons a `ce-toggle-button` can show, by its `icon` attribute. */
 export const toggleIcons = {
   "eye": eyeIcon,
   "eye-closed": eyeClosedIcon,
   "pipette": pipetteIcon,
+  "pointer": pointerIcon,
+  "polygon": polygonIcon,
+  "rectangle": rectangleIcon,
 } as const;

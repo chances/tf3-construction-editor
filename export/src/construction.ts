@@ -1,4 +1,4 @@
-import type { ConstructionDoc } from "@cedit/schema";
+import { type ConstructionDoc, resolvedTexCoords } from "@cedit/schema";
 import { toLua } from "./lua.ts";
 
 /** The table returned by `updateFn`. */
@@ -10,6 +10,22 @@ export function buildResult(doc: ConstructionDoc): Record<string, unknown> {
         transf: m.transf,
         tag: m.tag,
       })),
+      groundFaces: sub.groundFaces?.length
+        ? sub.groundFaces.map((face) => ({
+          // The game ignores a face's Z, so every point is written at 0.
+          face: face.points.map(([x, y]) => [x, y, 0]),
+          modes: face.modes.map((mode) => ({
+            type: mode.type,
+            key: mode.key,
+            texCoords: resolvedTexCoords(face, mode),
+          })),
+          loop: face.loop,
+          alignmentOffsetMode: face.alignmentOffsetMode,
+          alignmentOffset: face.alignmentOffset,
+          alignmentDirMode: face.alignmentDirMode,
+          alignmentDir: face.alignmentDir,
+        }))
+        : undefined,
       tag: sub.tag,
     })),
     cost: doc.costs.cost,

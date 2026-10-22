@@ -1,7 +1,13 @@
 import { css, html, LitElement, svg } from "lit";
 import { basename } from "@std/path/posix";
-import { decomposeTransf, type Mat4, transformPoint } from "@cedit/schema";
-import type { MdlSummary } from "./api.ts";
+import {
+  decomposeTransf,
+  edgeCrossesPolyline,
+  type GroundFaceDoc,
+  type Mat4,
+  transformPoint,
+} from "@cedit/schema";
+import { gtexImageUrl, type MdlSummary } from "./api.ts";
 import { observer } from "./observer.ts";
 import {
   type Segment,
@@ -23,6 +29,14 @@ const MAX_SCALE = 200;
 const SNAP_PX = 10;
 const ROTATE_HANDLE_PX = 28;
 const HANDLE_PX = 6;
+/** Side of one texture preview tile on a ground face, in meters. */
+const TILE_M = 4;
+
+/** Points and edges that a dragged or drawn ground face point can snap to. */
+interface SnapSet {
+  targets: Vec2[];
+  segments: Segment[];
+}
 
 const NO_SNAP: SnapSettings = {
   grid: null,
@@ -62,7 +76,25 @@ type Drag =
     origin: Vec2;
     startDistance: number;
     start: { x: number; y: number; z: number; yaw: number; scale: number };
-  };
+  }
+  | {
+    kind: "face";
+    sub: number;
+    face: number;
+    pointer: Vec2;
+    start: Vec2[];
+    set: SnapSet;
+  }
+  | {
+    kind: "vertex";
+    sub: number;
+    face: number;
+    vertex: number;
+    pointer: Vec2;
+    start: Vec2[];
+    set: SnapSet;
+  }
+  | { kind: "rect"; anchor: Vec2; set: SnapSet };
 
 function localBox(summary: MdlSummary | undefined): Vec2[] {
   const [x0, y0, x1, y1] = summary
@@ -83,6 +115,8 @@ export class CeCanvas extends observer(LitElement) {
     height: { state: true },
     snapMark: { state: true },
     panning: { state: true },
+    cursor: { state: true },
+    rectEnd: { state: true },
   };
   static override styles = [
     sharedStyles,
@@ -105,8 +139,65 @@ export class CeCanvas extends observer(LitElement) {
         cursor: grabbing;
       }
       svg.eyedropper,
-      svg.eyedropper .bbox {
+      svg.eyedropper .bbox,
+      svg.drawing,
+      svg.drawing .bbox,
+      svg.drawing .face-body {
         cursor: crosshair;
+      }
+      .face-body {
+        cursor: move;
+        fill: color-mix(in srgb, var(--ce-accent) 16%, transparent);
+        pointer-events: all;
+        stroke: var(--ce-accent);
+        stroke-width: 1;
+        vector-effect: non-scaling-stroke;
+      }
+      .face-fill {
+        fill-opacity: 0.7;
+        pointer-events: none;
+      }
+      .selected .face-body {
+        stroke-width: 2;
+      }
+      .face-stroke {
+        fill: none;
+        pointer-events: none;
+        stroke-width: 3;
+        vector-effect: non-scaling-stroke;
+      }
+      .face-stroke.stroke {
+        stroke: var(--ce-warning);
+      }
+      .face-stroke.stroke_outer {
+        stroke: var(--ce-accent);
+        stroke-dasharray: 6 3;
+      }
+      .face-stroke.stroke_inner {
+        stroke: var(--ce-model);
+        stroke-dasharray: 2 3;
+      }
+      .vertex {
+        cursor: move;
+        fill: var(--ce-surface);
+        stroke: var(--ce-accent);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .vertex.picked {
+        fill: var(--ce-accent);
+      }
+      .draft {
+        fill: color-mix(in srgb, var(--ce-accent) 12%, transparent);
+        pointer-events: none;
+        stroke: var(--ce-accent);
+        stroke-dasharray: 4 3;
+        stroke-width: 1.5;
+        vector-effect: non-scaling-stroke;
+      }
+      .draft-dot {
+        fill: var(--ce-accent);
+        pointer-events: none;
       }
       .grid {
         stroke: var(--ce-grid);
@@ -209,6 +300,10 @@ export class CeCanvas extends observer(LitElement) {
   declare height: number;
   declare snapMark: Vec2 | null;
   declare panning: boolean;
+  /** Snapped pointer position while a tool is armed, for the rubber band. */
+  declare cursor: Vec2 | null;
+  /** Far corner of the rectangle being dragged. */
+  declare rectEnd: Vec2 | null;
   #drag: Drag | null = null;
   #resize: ResizeObserver | undefined;
 
@@ -218,6 +313,8 @@ export class CeCanvas extends observer(LitElement) {
     this.height = 600;
     this.snapMark = null;
     this.panning = false;
+    this.cursor = null;
+    this.rectEnd = null;
   }
 
   override connectedCallback() {
@@ -237,8 +334,9 @@ export class CeCanvas extends observer(LitElement) {
   override render() {
     // Until a model is placed the surface is only the empty state: no grid,
     // no toolbar, no drag hint, and no pan cursor.
-    const placed = store.doc?.subconstructions.some((s) => s.models.length > 0);
-    if (!placed) return this.#empty();
+    // An armed drawing tool also shows the surface, so the first item can be
+    // a ground face.
+    if (!store.hasContent && store.tool === "select") return this.#empty();
     const { cx, cy, scale, width, height } = this;
     const halfW = width / 2 / scale;
     const halfH = height / 2 / scale;
@@ -247,7 +345,13 @@ export class CeCanvas extends observer(LitElement) {
     }`;
     return html`
       <svg
-        class=${this.panning ? "panning" : store.eyedropper ? "eyedropper" : ""}
+        class=${this.panning
+          ? "panning"
+          : store.eyedropper
+          ? "eyedropper"
+          : store.tool !== "select"
+          ? "drawing"
+          : ""}
         viewBox=${viewBox}
         @wheel=${this.#wheel}
         @pointerdown=${this.#downBackground}
@@ -256,11 +360,24 @@ export class CeCanvas extends observer(LitElement) {
         @pointercancel=${this.#up}
       >
         ${this.#grid(cx - halfW, cx + halfW, cy - halfH, cy + halfH)}
-        ${this.#models()} ${this.#gizmo()} ${this.#marker()}
+        ${this.#faces()} ${this.#models()} ${this.#faceHandles()}
+        ${this.#gizmo()} ${this.#draft()} ${this.#marker()}
       </svg>
       <ce-canvas-toolbar></ce-canvas-toolbar>
-      <span class="hint">Drag an item to move it. Hold Alt to skip snapping.</span>
+      <span class="hint">${this.#hint()}</span>
     `;
+  }
+
+  #hint(): string {
+    if (store.tool === "face") {
+      return store.faceDraft.length >= 3
+        ? "Click to add a point. Click the first point, double-click, or press Enter to close. Esc cancels."
+        : "Click to add points. Hold Alt to skip snapping. Esc cancels.";
+    }
+    if (store.tool === "rect") {
+      return "Drag to draw a rectangle. Hold Alt to skip snapping. Esc cancels.";
+    }
+    return "Drag an item to move it. Hold Alt to skip snapping.";
   }
 
   /** Prompt that fills the surface until the first model is placed. */
@@ -339,6 +456,181 @@ export class CeCanvas extends observer(LitElement) {
     });
   }
 
+  /** Everything a ground face point can snap to, minus the face being moved. */
+  #snapSet(skip: { sub: number; face: number } | null): SnapSet {
+    const targets: Vec2[] = [[0, 0]];
+    const segments: Segment[] = [];
+    store.doc?.subconstructions.forEach((layer, si) => {
+      layer.models.forEach((m) => {
+        if (!store.isVisible(si, m.transf[14])) return;
+        const summary = store.summaries.get(m.id);
+        const corners = localBox(summary).map((p) => toWorld(m.transf, p));
+        targets.push([m.transf[12], m.transf[13]], ...corners);
+        corners.forEach((c, i) => segments.push([c, corners[(i + 1) % 4]]));
+        for (const loop of summary?.outline ?? []) {
+          for (const p of loop) targets.push(toWorld(m.transf, p));
+        }
+      });
+      (layer.groundFaces ?? []).forEach((face, fi) => {
+        if (skip?.sub === si && skip.face === fi) return;
+        if (!store.isFaceVisible(si)) return;
+        face.points.forEach((p, i) => {
+          const next = face.points[(i + 1) % face.points.length];
+          targets.push([p[0], p[1]]);
+          segments.push([[p[0], p[1]], [next[0], next[1]]]);
+        });
+      });
+    });
+    return { targets, segments };
+  }
+
+  /**
+   * Snaps a point. With `prev`, the edge from `prev` to the point first snaps
+   * to the angle step, and the grid no longer applies, since it would move the
+   * point off that angle.
+   */
+  #snapPoint(
+    p: Vec2,
+    set: SnapSet,
+    event: PointerEvent,
+    prev?: Vec2,
+  ): Vec2 {
+    const settings = event.altKey ? NO_SNAP : store.snap;
+    let candidate = p;
+    let use = settings;
+    if (prev && settings.angle !== null) {
+      const angle = snapAngle(
+        Math.atan2(p[1] - prev[1], p[0] - prev[0]),
+        settings.angle,
+      );
+      const length = Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+      candidate = [
+        prev[0] + Math.cos(angle) * length,
+        prev[1] + Math.sin(angle) * length,
+      ];
+      use = { ...settings, grid: null };
+    }
+    const snapped = snapMove(
+      [candidate],
+      set.targets,
+      set.segments,
+      use,
+      SNAP_PX / this.scale,
+    );
+    this.snapMark = snapped.target ?? null;
+    return [candidate[0] + snapped.delta[0], candidate[1] + snapped.delta[1]];
+  }
+
+  #faces() {
+    const doc = store.doc;
+    if (!doc) return null;
+    const fs = store.faceSelection;
+    const items = doc.subconstructions.flatMap((layer, si) =>
+      (layer.groundFaces ?? []).map((face, fi) => ({ si, fi, face }))
+    ).filter(({ si }) => store.isFaceVisible(si));
+    const isSel = (si: number, fi: number) => fs?.sub === si && fs.face === fi;
+    items.sort((a, b) => Number(isSel(a.si, a.fi)) - Number(isSel(b.si, b.fi)));
+    const patterns = new Map<string, string>();
+    const patternFor = (key: string) => {
+      let id = patterns.get(key);
+      if (id === undefined) patterns.set(key, id = `gtex-${patterns.size}`);
+      return id;
+    };
+    const drawn = items.map(({ si, fi, face }) => {
+      const ring = face.points.map((p) => `${p[0]},${-p[1]}`).join(" ");
+      const fill = face.modes.find((m) => m.type === "FILL" && m.key !== "");
+      const strokes = face.modes.filter((m) => m.type !== "FILL");
+      return svg`
+        <g class=${isSel(si, fi) ? "selected" : ""}>
+          <polygon
+            class="face-body"
+            points=${ring}
+            @pointerdown=${(e: PointerEvent) => this.#downFace(e, si, fi)}
+          />
+          ${fill
+            ? svg`
+              <polygon class="face-fill" points=${ring}
+                fill="url(#${patternFor(fill.key)})" />
+            `
+            : null}
+          ${strokes.map((mode) =>
+            face.loop === false
+              ? svg`
+                <polyline class="face-stroke ${mode.type.toLowerCase()}"
+                  points=${ring} />
+              `
+              : svg`
+                <polygon class="face-stroke ${mode.type.toLowerCase()}"
+                  points=${ring} />
+              `
+          )}
+        </g>
+      `;
+    });
+    return svg`
+      <defs>
+        ${[...patterns].map(([key, id]) =>
+          svg`
+            <pattern id=${id} patternUnits="userSpaceOnUse" width=${TILE_M}
+              height=${TILE_M}>
+              <image href=${gtexImageUrl(store.dir, key, 128)} width=${TILE_M}
+                height=${TILE_M} preserveAspectRatio="none" />
+            </pattern>
+          `
+        )}
+      </defs>
+      ${drawn}
+    `;
+  }
+
+  /** Vertex handles of the selected face, drawn over the models. */
+  #faceHandles() {
+    const s = store.faceSelection;
+    const face = store.selectedFace;
+    if (!s || !face || store.tool !== "select") return null;
+    if (!store.isFaceVisible(s.sub)) return null;
+    const r = HANDLE_PX / this.scale;
+    return face.points.map((p, i) =>
+      svg`
+        <circle
+          class=${s.vertex === i ? "vertex picked" : "vertex"}
+          cx=${p[0]}
+          cy=${-p[1]}
+          r=${r}
+          @pointerdown=${(e: PointerEvent) =>
+            this.#downVertex(e, s.sub, s.face, i)}
+        />
+      `
+    );
+  }
+
+  /** The polygon being clicked out, or the rectangle being dragged. */
+  #draft() {
+    const r = (HANDLE_PX - 2) / this.scale;
+    if (store.tool === "rect" && this.#drag?.kind === "rect" && this.rectEnd) {
+      const a = this.#drag.anchor;
+      const b = this.rectEnd;
+      return svg`
+        <rect class="draft" x=${Math.min(a[0], b[0])}
+          y=${-Math.max(a[1], b[1])} width=${Math.abs(a[0] - b[0])}
+          height=${Math.abs(a[1] - b[1])} />
+      `;
+    }
+    const draft = store.faceDraft;
+    if (store.tool !== "face" || draft.length === 0) return null;
+    const pts = this.cursor ? [...draft, this.cursor] : draft;
+    const ring = pts.map((p) => `${p[0]},${-p[1]}`).join(" ");
+    return svg`
+      <polygon class="draft" points=${ring} />
+      ${draft.map((p, i) =>
+        svg`
+          <circle class="draft-dot" cx=${p[0]} cy=${-p[1]}
+            r=${i === 0 && draft.length >= 3 ? r * 1.8 : r} />
+        `
+      )}
+    `;
+  }
+
   #selectedGeometry() {
     const sel = store.selection;
     const placement = store.selectedPlacement;
@@ -405,12 +697,87 @@ export class CeCanvas extends observer(LitElement) {
 
   #downBackground(event: PointerEvent) {
     this.#capture(event);
+    // The middle button pans while a drawing tool is armed.
+    if (store.tool !== "select" && event.button !== 1) {
+      this.#downTool(event);
+      return;
+    }
     this.#drag = { kind: "pan", x: event.clientX, y: event.clientY };
     this.panning = true;
     store.select(null);
   }
 
+  /** A click or drag with the polygon or rectangle tool. */
+  #downTool(event: PointerEvent) {
+    const set = this.#snapSet(null);
+    const raw = this.#pointerWorld(event);
+    if (store.tool === "rect") {
+      const anchor = this.#snapPoint(raw, set, event);
+      this.#drag = { kind: "rect", anchor, set };
+      this.rectEnd = anchor;
+      return;
+    }
+    const draft = store.faceDraft;
+    const first = draft[0];
+    const nearFirst = first !== undefined && draft.length >= 3 &&
+      Math.hypot(raw[0] - first[0], raw[1] - first[1]) * this.scale <=
+        SNAP_PX * 1.5;
+    // The first click of a double-click already added its point.
+    if (nearFirst || (event.detail >= 2 && draft.length >= 3)) {
+      store.closeDraft();
+      this.cursor = null;
+      return;
+    }
+    const prev = draft.at(-1);
+    const point = this.#snapPoint(raw, set, event, prev);
+    if (prev && point[0] === prev[0] && point[1] === prev[1]) return;
+    // An edge that crosses the polygon so far would make a bow-tie.
+    if (prev && edgeCrossesPolyline(draft, prev, point)) return;
+    store.addDraftPoint(point);
+  }
+
+  #downFace(event: PointerEvent, sub: number, face: number) {
+    // With a drawing tool armed the click goes on to the surface.
+    if (store.tool !== "select") return;
+    event.stopPropagation();
+    const target = store.doc?.subconstructions[sub].groundFaces?.[face];
+    if (!target) return;
+    this.#capture(event);
+    store.activeSub = sub;
+    store.selectFace({ sub, face, vertex: null });
+    store.beginGesture();
+    this.#drag = {
+      kind: "face",
+      sub,
+      face,
+      pointer: this.#pointerWorld(event),
+      start: target.points.map((p): Vec2 => [p[0], p[1]]),
+      set: this.#snapSet({ sub, face }),
+    };
+  }
+
+  #downVertex(event: PointerEvent, sub: number, face: number, vertex: number) {
+    event.stopPropagation();
+    const target: GroundFaceDoc | undefined = store.doc?.subconstructions[sub]
+      .groundFaces?.[face];
+    if (!target) return;
+    this.#capture(event);
+    store.selectFace({ sub, face, vertex });
+    store.beginGesture();
+    this.#drag = {
+      kind: "vertex",
+      sub,
+      face,
+      vertex,
+      pointer: this.#pointerWorld(event),
+      start: target.points.map((p): Vec2 => [p[0], p[1]]),
+      set: this.#snapSet({ sub, face }),
+    };
+  }
+
   #downModel(event: PointerEvent, sub: number, model: number) {
+    // With a drawing tool armed the click goes on to the surface.
+    if (store.tool !== "select") return;
     event.stopPropagation();
     const doc = store.doc!;
     if (store.eyedropperActive) {
@@ -501,7 +868,18 @@ export class CeCanvas extends observer(LitElement) {
 
   #move(event: PointerEvent) {
     const drag = this.#drag;
-    if (!drag) return;
+    if (!drag) {
+      // The rubber band follows the pointer between clicks.
+      if (store.tool === "face") {
+        this.cursor = this.#snapPoint(
+          this.#pointerWorld(event),
+          this.#snapSet(null),
+          event,
+          store.faceDraft.at(-1),
+        );
+      }
+      return;
+    }
     if (drag.kind === "pan") {
       this.cx -= (event.clientX - drag.x) / this.scale;
       this.cy += (event.clientY - drag.y) / this.scale;
@@ -511,6 +889,69 @@ export class CeCanvas extends observer(LitElement) {
     }
     const settings = event.altKey ? NO_SNAP : store.snap;
     const p = this.#pointerWorld(event);
+    if (drag.kind === "rect") {
+      this.rectEnd = this.#snapPoint(p, drag.set, event);
+      return;
+    }
+    if (drag.kind === "face") {
+      const dx = p[0] - drag.pointer[0];
+      const dy = p[1] - drag.pointer[1];
+      const moved = drag.start.map((s): Vec2 => [s[0] + dx, s[1] + dy]);
+      const snapped = snapMove(
+        moved,
+        drag.set.targets,
+        drag.set.segments,
+        settings,
+        SNAP_PX / this.scale,
+      );
+      this.snapMark = snapped.target ?? null;
+      store.setFacePoints(
+        drag.sub,
+        drag.face,
+        drag.start.map((s): Vec2 => [
+          s[0] + dx + snapped.delta[0],
+          s[1] + dy + snapped.delta[1],
+        ]),
+      );
+      return;
+    }
+    if (drag.kind === "vertex") {
+      const at = drag.start[drag.vertex];
+      const moved: Vec2 = [
+        at[0] + p[0] - drag.pointer[0],
+        at[1] + p[1] - drag.pointer[1],
+      ];
+      const snapped = snapMove(
+        [moved],
+        drag.set.targets,
+        drag.set.segments,
+        settings,
+        SNAP_PX / this.scale,
+      );
+      this.snapMark = snapped.target ?? null;
+      const points = drag.start.map((s): Vec2 => [s[0], s[1]]);
+      points[drag.vertex] = [
+        moved[0] + snapped.delta[0],
+        moved[1] + snapped.delta[1],
+      ];
+      const result = store.setFacePoints(
+        drag.sub,
+        drag.face,
+        points,
+        drag.vertex,
+      );
+      if (result.reversed) {
+        // The drag turned the polygon clockwise and it was reversed, so keep
+        // dragging the same point from where it now sits.
+        const now =
+          store.doc!.subconstructions[drag.sub].groundFaces![drag.face]
+            .points;
+        drag.start = now.map((q): Vec2 => [q[0], q[1]]);
+        drag.vertex = result.vertex;
+        drag.pointer = p;
+      }
+      return;
+    }
     if (drag.kind === "move") {
       const dx = p[0] - drag.pointer[0];
       const dy = p[1] - drag.pointer[1];
@@ -544,7 +985,14 @@ export class CeCanvas extends observer(LitElement) {
   }
 
   #up() {
-    if (this.#drag && this.#drag.kind !== "pan") store.endGesture();
+    const drag = this.#drag;
+    if (drag?.kind === "rect") {
+      const end = this.rectEnd ?? drag.anchor;
+      this.#drag = null;
+      this.rectEnd = null;
+      store.addRectangle(drag.anchor, end);
+    }
+    if (drag && drag.kind !== "pan" && drag.kind !== "rect") store.endGesture();
     this.#drag = null;
     this.panning = false;
     this.snapMark = null;
