@@ -80,14 +80,16 @@ Run from the repo root.
   no nested group boxes, empty panes show a filling placeholder, icon-only
   buttons carry a short `title` and a different, descriptive `aria-label` (never
   equal), a removal that undo restores (a model, a ground face, a paint mode, a
-  vertex) skips the dialog, every removal of a container or of something undo
-  cannot restore confirms in the one modal (`ce-confirm-dialog`): a
-  construction, a layer, or a mod list entry (author, dependency,
-  incompatibility), and icons come from Lucide through `app/src/icons.ts`. A new
-  surface that shows existing items carries over their treatments (zone colors,
-  loading and empty states, the squared edge where it joins a field). A
-  heading's actions are as tall as the Scene heading actions (`1.5rem`), so the
-  heading never grows.
+  vertex) skips the dialog, except a removal that also removes dependents or
+  painted work, which confirms (a path node, edge, or edge list that a runway or
+  edge object uses, and a raster material that has pixels). Every removal of a
+  container or of something undo cannot restore confirms in the one modal
+  (`ce-confirm-dialog`): a construction, a layer, or a mod list entry (author,
+  dependency, incompatibility), and icons come from Lucide through
+  `app/src/icons.ts`. A new surface that shows existing items carries over their
+  treatments (zone colors, loading and empty states, the squared edge where it
+  joins a field). A heading's actions are as tall as the Scene heading actions
+  (`1.5rem`), so the heading never grows.
 - A control that almost fits a new need is generalized with a prop, never
   copied: `ce-range-slider` serves years and the Z band through `step`,
   `openStart`, and `openIcon`. A control used in a vertically tight place (the
