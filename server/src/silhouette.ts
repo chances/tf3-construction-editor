@@ -66,6 +66,66 @@ function simplifyLoop(loop: Point2[], epsilon: number): Point2[] {
   return [...a.slice(0, -1), ...b.slice(0, -1)];
 }
 
+/** Where the line through a and b meets the line through c and d. */
+function intersectLines(
+  a: Point2,
+  b: Point2,
+  c: Point2,
+  d: Point2,
+): Point2 | null {
+  const r = [b[0] - a[0], b[1] - a[1]];
+  const s = [d[0] - c[0], d[1] - c[1]];
+  const denom = r[0] * s[1] - r[1] * s[0];
+  if (
+    Math.abs(denom) < 1e-9 * Math.hypot(r[0], r[1]) * Math.hypot(s[0], s[1])
+  ) {
+    return null;
+  }
+  const t = ((c[0] - a[0]) * s[1] - (c[1] - a[1]) * s[0]) / denom;
+  return [a[0] + t * r[0], a[1] + t * r[1]];
+}
+
+function distanceToSegmentEnds(p: Point2, a: Point2, b: Point2): number {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(
+    0,
+    Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2),
+  );
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+/**
+ * The raster turns a sharp corner into a short flat tread that the simplifier
+ * keeps. An edge is raster noise when the point where its two neighbors meet
+ * lies within `tolerance` of it, so that point replaces the edge. A real notch
+ * fails the test because its neighbors meet far from the edge.
+ */
+function mergeChamfers(loop: Point2[], tolerance: number): Point2[] {
+  const points = [...loop];
+  for (let again = true; again && points.length > 3;) {
+    again = false;
+    const n = points.length;
+    let pick = -1, pickAt: Point2 | null = null, shortest = Infinity;
+    for (let i = 0; i < n; i++) {
+      const p0 = points[(i + n - 1) % n], p1 = points[i];
+      const p2 = points[(i + 1) % n], p3 = points[(i + 2) % n];
+      const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+      if (len >= shortest) continue;
+      const hit = intersectLines(p0, p1, p2, p3);
+      if (hit && distanceToSegmentEnds(hit, p1, p2) <= tolerance) {
+        [shortest, pick, pickAt] = [len, i, hit];
+      }
+    }
+    if (pick >= 0 && pickAt) {
+      points[pick] = pickAt;
+      points.splice((pick + 1) % n, 1);
+      again = true;
+    }
+  }
+  return points;
+}
+
 function signedArea(loop: Point2[]): number {
   let sum = 0;
   for (let i = 0; i < loop.length; i++) {
@@ -154,7 +214,7 @@ export function silhouette(triangles: Triangle2[]): Point2[][] {
 
   const result: Point2[][] = [];
   for (const loop of loops) {
-    const simple = simplifyLoop(loop, cell * 0.75);
+    const simple = mergeChamfers(simplifyLoop(loop, cell * 1.5), cell * 2.5);
     if (simple.length >= 3 && Math.abs(signedArea(simple)) > cell * cell) {
       result.push(simple);
     }

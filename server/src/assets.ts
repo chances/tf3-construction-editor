@@ -266,6 +266,11 @@ export class AssetIndex {
 
   /** Top-down outline loops of the highest detail LOD, in model space. */
   async readOutline(id: string): Promise<Point2[][]> {
+    return silhouette(await this.readTriangles(id));
+  }
+
+  /** Top-down triangles of the highest detail LOD, in model space. */
+  async readTriangles(id: string): Promise<Triangle2[]> {
     const entry = this.byId.get(id);
     if (!entry) {
       throw new Deno.errors.NotFound(`Model ${id} is not in the index.`);
@@ -293,7 +298,7 @@ export class AssetIndex {
         triangles.push([a[0], a[1], b[0], b[1], c[0], c[1]]);
       }
     }
-    return silhouette(triangles);
+    return triangles;
   }
 
   async readModel(id: string): Promise<MdlSummary> {
