@@ -360,6 +360,105 @@ Deno.test("api: the gtex route searches ground textures by keyword", async () =>
   });
 });
 
+async function modWithPathTypes(modsRoot: string) {
+  const handler = await modWithImages(modsRoot);
+  const folder = join(modsRoot, "demo_mod", "content", "signs");
+  await Deno.mkdir(folder, { recursive: true });
+  await Deno.writeTextFile(
+    join(folder, "gate.con.lua"),
+    "function data() return { edgeObject = {}, params = {} } end",
+  );
+  await Deno.writeTextFile(
+    join(folder, "hall.con.lua"),
+    "function data() return { params = {} } end",
+  );
+  await Deno.writeTextFile(
+    join(folder, "lane.street_template.lua"),
+    "return {}",
+  );
+  return handler;
+}
+
+Deno.test("api: the edge-objects route lists only cons with an edgeObject table", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithPathTypes(modsRoot);
+    const res = await call(handler, "GET", "/api/mods/demo_mod/edge-objects");
+    assertEquals(res.status, 200);
+    assertEquals(
+      res.body.entries.map((e: { id: string; name: string }) => [e.id, e.name]),
+      [["/signs/gate.con", "gate"]],
+    );
+  });
+});
+
+Deno.test("api: the edge-types route filters by street or track", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithPathTypes(modsRoot);
+    const streets = await call(
+      handler,
+      "GET",
+      "/api/mods/demo_mod/edge-types?type=STREET",
+    );
+    assertEquals(streets.body.entries.map((e: { id: string }) => e.id), [
+      "/signs/lane.street_template",
+    ]);
+    const tracks = await call(
+      handler,
+      "GET",
+      "/api/mods/demo_mod/edge-types?type=TRACK",
+    );
+    assertEquals(tracks.body.entries, []);
+  });
+});
+
+Deno.test("api: lint flags an edge object missing from the index", async () => {
+  await withTempDir(async (modsRoot) => {
+    const handler = await modWithPathTypes(modsRoot);
+    const doc = {
+      schemaVersion: 1,
+      id: "c",
+      folder: "c",
+      description: { name: "C", description: "" },
+      availability: { yearFrom: 0 },
+      menuCategory: { category: "landmarks", order: 1 },
+      costs: {},
+      metadata: {},
+      edgeLists: [{
+        id: "edges-1",
+        type: "STREET",
+        typeName: "/signs/lane.street_template",
+        alignTerrain: false,
+        nodes: [{ pos: [0, 0, 0] }, { pos: [5, 0, 0] }],
+        edges: [[0, 1]],
+      }],
+      edgeObjects: [
+        {
+          model: "/signs/gate.con",
+          edgeList: "edges-1",
+          edge: 0,
+          param: 1,
+          left: false,
+        },
+        {
+          model: "/signs/gone.con",
+          edgeList: "edges-1",
+          edge: 0,
+          param: 2,
+          left: false,
+        },
+      ],
+      subconstructions: [{ models: [] }],
+    };
+    const res = await call(handler, "POST", "/api/mods/demo_mod/lint", doc);
+    const errors = res.body.filter((i: { severity: string }) =>
+      i.severity === "error"
+    );
+    assertEquals(errors.map((i: { path: string }) => i.path), [
+      "edgeObjects.1.model",
+    ]);
+  });
+});
+
 Deno.test("api: the gtex-image route serves the material's preview PNG", async () => {
   await withTempDir(async (modsRoot) => {
     const handler = await modWithGtex(modsRoot);

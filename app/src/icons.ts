@@ -20,12 +20,16 @@ import {
   MousePointer2,
   Pentagon,
   Pipette,
+  PlaneTakeoff,
   Plus,
   RectangleHorizontal,
   Redo2,
+  Road,
   Search,
+  Signpost,
   Slash,
   SlidersHorizontal,
+  Spline,
   Trash2,
   TriangleAlert,
   Undo2,
@@ -96,6 +100,10 @@ export const pointerIcon = (size = 16) => lucideIcon(MousePointer2, size);
 export const polygonIcon = (size = 16) => lucideIcon(Pentagon, size);
 export const rectangleIcon = (size = 16) =>
   lucideIcon(RectangleHorizontal, size);
+export const laneIcon = (size = 16) => lucideIcon(Road, size);
+export const edgesIcon = (size = 16) => lucideIcon(Spline, size);
+export const runwayIcon = (size = 16) => lucideIcon(PlaneTakeoff, size);
+export const edgeObjectIcon = (size = 16) => lucideIcon(Signpost, size);
 
 /** Icons a `ce-toggle-button` can show, by its `icon` attribute. */
 export const toggleIcons = {
@@ -105,4 +113,6 @@ export const toggleIcons = {
   "pointer": pointerIcon,
   "polygon": polygonIcon,
   "rectangle": rectangleIcon,
+  "lane": laneIcon,
+  "edges": edgesIcon,
 } as const;

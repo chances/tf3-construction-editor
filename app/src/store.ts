@@ -5,19 +5,46 @@ import {
   composeTransf,
   type ConstructionDoc,
   decomposeTransf,
+  type EdgeListDoc,
+  type EdgeListType,
+  type EdgeObjectDoc,
   type GroundFaceDoc,
   type GroundFaceMode,
   type Issue,
+  type LaneListDoc,
   MIN_FACE_POINTS,
   type ModInfoJson,
   type ModJson,
+  newEdgeList,
+  newEdgeListId,
   newGroundFace,
+  newLaneList,
+  newRunway,
   newSubconstruction,
   type PositionYaw,
   rectanglePoints,
+  type RunwayDoc,
+  type RunwayKind,
   signedArea,
   type Vec2,
+  type Vec3,
 } from "@cedit/schema";
+import {
+  addEdgeChain,
+  canRemoveLaneNode,
+  type DraftPoint,
+  edgeImpact,
+  type Impact,
+  insertLaneNode,
+  listImpact,
+  nodeImpact,
+  noImpact,
+  removeEdge,
+  removeEdgeList,
+  removeEdgeNode,
+  removeLaneNode,
+} from "./path-edit.ts";
+import { counted, nounForms } from "./plural.ts";
 import {
   insertVertex,
   normalizeWinding,
@@ -44,6 +71,7 @@ import {
   type MdlSummary,
   type ModListing,
   onUnreachable,
+  type PathTypeListing,
 } from "./api.ts";
 
 export interface Selection {
@@ -58,8 +86,25 @@ export interface FaceSelection {
   vertex: number | null;
 }
 
-/** The canvas tool: pick items, click a polygon, or drag a rectangle. */
-export type Tool = "select" | "face" | "rect";
+/**
+ * The canvas tool: pick items, click a polygon, drag a rectangle, or click out
+ * a lane list or an edge list.
+ */
+export type Tool = "select" | "face" | "rect" | "lane" | "edges";
+
+/** A lane list, edge list, runway, or edge object picked in the scene. */
+export type PathSelection =
+  | { kind: "lane"; sub: number; lane: number; node: number | null }
+  | { kind: "edgeList"; list: number; node: number | null; edge: number | null }
+  | { kind: "runway"; sub: number; runway: number }
+  | { kind: "edgeObject"; index: number };
+
+/** The runway field that waits for a click on an edge list node or edge. */
+export interface RunwayPick {
+  sub: number;
+  runway: number;
+  field: "node" | "edges";
+}
 
 /** The paint mode whose texture picker should open as soon as it renders. */
 export interface TexturePick {
@@ -91,7 +136,12 @@ const INDEXING_MESSAGE = "Indexing base game and mod models…";
 export type View = "mods" | "details" | "constructions" | "editor";
 
 /** What the Properties section shows. */
-export type InspectTarget = "construction" | "layer" | "model" | "face";
+export type InspectTarget =
+  | "construction"
+  | "layer"
+  | "model"
+  | "face"
+  | "path";
 
 export class EditorStore {
   view: View = "mods";
@@ -108,9 +158,20 @@ export class EditorStore {
   /** Points of the polygon being clicked out, before it closes into a face. */
   faceDraft: [number, number][] = [];
   pendingTexturePick: TexturePick | null = null;
+  pathSelection: PathSelection | null = null;
+  /** Clicked points of the lane list or edge list being drawn. */
+  pathDraft: DraftPoint[] = [];
+  /** The runway field waiting for a click on the surface, or null. */
+  runwayPick: RunwayPick | null = null;
+  /** The edge list whose type picker should open as soon as it renders. */
+  pendingTypePick: string | null = null;
+  /** The edge object (by index) whose model picker should open. */
+  pendingObjectPick: number | null = null;
   activeSub = 0;
   assets: AssetListing[] = [];
   assetTotal = 0;
+  /** Edge objects that match the search text, listed after the models. */
+  edgeObjectAssets: PathTypeListing[] = [];
   /** The search text. It lives in the `q` parameter of the page URL, not in storage. */
   assetQuery = queryFromSearch(globalThis.location?.search ?? "");
   /** The selected asset filters. They live in the page URL, not in storage. */
@@ -226,13 +287,48 @@ export class EditorStore {
     return this.doc?.subconstructions.some((s) => s.models.length > 0) ?? false;
   }
 
-  /** True once any layer holds a model or a ground face. */
+  /** True once any layer holds a model, a ground face, or a path. */
   get hasContent(): boolean {
     return this.hasModels ||
       (this.doc?.subconstructions.some((s) =>
-        (s.groundFaces?.length ?? 0) > 0
-      ) ??
-        false);
+        (s.groundFaces?.length ?? 0) > 0 || (s.laneLists?.length ?? 0) > 0
+      ) ?? false) || (this.doc?.edgeLists?.length ?? 0) > 0;
+  }
+
+  get selectedLane(): LaneListDoc | null {
+    const s = this.pathSelection;
+    if (s?.kind !== "lane" || !this.doc) return null;
+    return this.doc.subconstructions[s.sub]?.laneLists?.[s.lane] ?? null;
+  }
+
+  get selectedEdgeList(): EdgeListDoc | null {
+    const s = this.pathSelection;
+    if (s?.kind !== "edgeList" || !this.doc) return null;
+    return this.doc.edgeLists?.[s.list] ?? null;
+  }
+
+  get selectedRunway(): RunwayDoc | null {
+    const s = this.pathSelection;
+    if (s?.kind !== "runway" || !this.doc) return null;
+    return this.doc.subconstructions[s.sub]?.runways?.[s.runway] ?? null;
+  }
+
+  get selectedEdgeObject(): EdgeObjectDoc | null {
+    const s = this.pathSelection;
+    if (s?.kind !== "edgeObject" || !this.doc) return null;
+    return this.doc.edgeObjects?.[s.index] ?? null;
+  }
+
+  /** True when the Z band lets a height through. Layers do not matter here. */
+  isZVisible(z: number): boolean {
+    const { min, max } = this.zBand;
+    return (min === null || z >= min) && (max === null || z <= max);
+  }
+
+  /** A path shows when any of its points is inside the Z band. */
+  isPathVisible(heights: readonly number[], sub?: number): boolean {
+    if (sub !== undefined && !this.isFaceVisible(sub)) return false;
+    return heights.some((z) => this.isZVisible(z));
   }
 
   get selectedFace(): GroundFaceDoc | null {
@@ -391,7 +487,8 @@ export class EditorStore {
       selection: this.selection ? { ...this.selection } : null,
       activeSub: this.activeSub,
       // A face selection is not saved, so a face inspector falls back to the layer.
-      inspectTarget: this.inspectTarget === "face"
+      inspectTarget: this.inspectTarget === "face" ||
+          this.inspectTarget === "path"
         ? "layer"
         : this.inspectTarget,
       snap: { ...this.snap },
@@ -736,12 +833,22 @@ export class EditorStore {
     const f = this.faceSelection;
     if (f?.sub === sub) this.faceSelection = null;
     else if (f && f.sub > sub) this.faceSelection = { ...f, sub: f.sub - 1 };
+    const p = this.pathSelection;
+    if ((p?.kind === "lane" || p?.kind === "runway") && p.sub === sub) {
+      this.pathSelection = null;
+    } else if ((p?.kind === "lane" || p?.kind === "runway") && p.sub > sub) {
+      this.pathSelection = { ...p, sub: p.sub - 1 };
+    }
     if (this.activeSub > sub) this.activeSub -= 1;
     this.activeSub = Math.min(
       this.activeSub,
       this.doc.subconstructions.length - 1,
     );
-    if (wasActive || (this.selection === null && this.faceSelection === null)) {
+    if (
+      wasActive ||
+      (this.selection === null && this.faceSelection === null &&
+        this.pathSelection === null)
+    ) {
       this.inspectTarget = "construction";
     }
   }
@@ -808,6 +915,9 @@ export class EditorStore {
           this.doc = doc;
           this.selection = null;
           this.faceSelection = null;
+          this.pathSelection = null;
+          this.pathDraft = [];
+          this.runwayPick = null;
           this.tool = "select";
           this.faceDraft = [];
           this.inspectTarget = "construction";
@@ -939,6 +1049,7 @@ export class EditorStore {
     if (this.activeSub >= this.doc!.subconstructions.length) {
       this.activeSub = 0;
     }
+    this.#keepPathSelection();
     this.#scheduleSave();
     void this.#loadSummaries();
   }
@@ -1053,6 +1164,19 @@ export class EditorStore {
     } catch (error) {
       this.#fail(error);
     }
+    // Edge objects share the search text. A chip filter only fits models.
+    try {
+      const objects = filterCount(this.assetFilters) > 0
+        ? []
+        : (await api.edgeObjects(this.dir, query, 50)).entries;
+      if (version === this.#searchVersion) {
+        runInAction(() => {
+          this.edgeObjectAssets = objects;
+        });
+      }
+    } catch {
+      // The Edge Objects section stays as it was.
+    }
   }
 
   /** Selects or clears one chip filter, updates the page URL, and searches again. */
@@ -1161,6 +1285,8 @@ export class EditorStore {
   select(selection: Selection | null) {
     this.selection = selection;
     this.faceSelection = null;
+    this.pathSelection = null;
+    this.runwayPick = null;
     this.inspectTarget = selection ? "model" : "construction";
     if (selection) this.activeSub = selection.sub;
   }
@@ -1169,6 +1295,8 @@ export class EditorStore {
   selectLayer(sub: number) {
     this.selection = null;
     this.faceSelection = null;
+    this.pathSelection = null;
+    this.runwayPick = null;
     this.activeSub = sub;
     this.inspectTarget = "layer";
   }
@@ -1176,6 +1304,8 @@ export class EditorStore {
   /** Selects a ground face, or clears the selection and shows the construction. */
   selectFace(selection: FaceSelection | null) {
     this.selection = null;
+    this.pathSelection = null;
+    this.runwayPick = null;
     this.faceSelection = selection;
     this.inspectTarget = selection ? "face" : "construction";
     if (selection) this.activeSub = selection.sub;
@@ -1192,6 +1322,8 @@ export class EditorStore {
   setTool(tool: Tool) {
     this.tool = tool;
     this.faceDraft = [];
+    this.pathDraft = [];
+    this.runwayPick = null;
   }
 
   addDraftPoint(point: [number, number]) {
@@ -1353,6 +1485,503 @@ export class EditorStore {
   isFaceVisible(sub: number): boolean {
     const layer = this.doc?.subconstructions[sub];
     return layer !== undefined && !layer.hidden;
+  }
+
+  /** Drops a path selection the document no longer holds, as after an undo. */
+  #keepPathSelection() {
+    const s = this.pathSelection;
+    const doc = this.doc;
+    if (!s || !doc) return;
+    let held = false;
+    if (s.kind === "lane") {
+      const lane = doc.subconstructions[s.sub]?.laneLists?.[s.lane];
+      held = lane !== undefined;
+      if (lane && s.node !== null && s.node >= lane.nodes.length) {
+        this.pathSelection = { ...s, node: null };
+      }
+    } else if (s.kind === "edgeList") {
+      const list = doc.edgeLists?.[s.list];
+      held = list !== undefined;
+      if (list) {
+        this.pathSelection = {
+          ...s,
+          node: s.node !== null && s.node < list.nodes.length ? s.node : null,
+          edge: s.edge !== null && s.edge < list.edges.length ? s.edge : null,
+        };
+      }
+    } else if (s.kind === "runway") {
+      held = doc.subconstructions[s.sub]?.runways?.[s.runway] !== undefined;
+    } else {
+      held = doc.edgeObjects?.[s.index] !== undefined;
+    }
+    if (!held) {
+      this.pathSelection = null;
+      if (this.inspectTarget === "path") this.inspectTarget = "construction";
+    }
+  }
+
+  /** Selects a lane list, edge list, runway, or edge object. Null clears it. */
+  selectPath(selection: PathSelection | null) {
+    this.selection = null;
+    this.faceSelection = null;
+    this.pathSelection = selection;
+    if (selection?.kind !== "runway") this.runwayPick = null;
+    this.inspectTarget = selection ? "path" : "construction";
+    if (
+      selection && (selection.kind === "lane" || selection.kind === "runway")
+    ) {
+      this.activeSub = selection.sub;
+    }
+  }
+
+  /** Picks the node of the selected lane list or edge list. */
+  selectPathNode(node: number | null) {
+    const s = this.pathSelection;
+    if (s?.kind === "lane") this.pathSelection = { ...s, node };
+    else if (s?.kind === "edgeList") {
+      this.pathSelection = { ...s, node, edge: null };
+    }
+  }
+
+  /** Picks the edge of the selected edge list. */
+  selectPathEdge(edge: number | null) {
+    const s = this.pathSelection;
+    if (s?.kind === "edgeList") {
+      this.pathSelection = { ...s, edge, node: null };
+    }
+  }
+
+  /** The height a new draft point starts at: the previous point's, else 0. */
+  get nextPathZ(): number {
+    return this.pathDraft.at(-1)?.pos[2] ?? 0;
+  }
+
+  addPathDraftPoint(point: DraftPoint) {
+    this.pathDraft = [...this.pathDraft, point];
+  }
+
+  /** Closes the clicked path: a lane list or edges in an edge list. */
+  finishPathDraft() {
+    const draft = this.pathDraft;
+    const tool = this.tool;
+    this.pathDraft = [];
+    this.tool = "select";
+    if (draft.length < 2) return;
+    if (tool === "lane") this.#addLaneList(draft.map((d) => d.pos));
+    else this.#addEdges(draft);
+  }
+
+  #addLaneList(points: Vec3[]) {
+    if (!this.doc) return;
+    const sub = Math.min(this.activeSub, this.doc.subconstructions.length - 1);
+    const lane = newLaneList(points);
+    let index = 0;
+    this.edit((doc) => {
+      const layer = doc.subconstructions[sub];
+      layer.laneLists ??= [];
+      layer.laneLists.push(lane);
+      index = layer.laneLists.length - 1;
+    }, { label: "Add lane list" });
+    this.selectPath({ kind: "lane", sub, lane: index, node: null });
+  }
+
+  /**
+   * Adds the drawn chain to the selected edge list, or to a new street edge
+   * list, whose type picker then opens.
+   */
+  #addEdges(draft: DraftPoint[]) {
+    if (!this.doc) return;
+    const s = this.pathSelection;
+    const existing = s?.kind === "edgeList" && this.doc.edgeLists?.[s.list]
+      ? s.list
+      : -1;
+    let index = existing;
+    let last: number | null = null;
+    let id = "";
+    this.edit((doc) => {
+      if (existing >= 0) {
+        last = addEdgeChain(doc.edgeLists![existing], draft);
+        return;
+      }
+      doc.edgeLists ??= [];
+      const list = newEdgeList(newEdgeListId(doc.edgeLists), "STREET");
+      id = list.id;
+      // Nothing to join in a list that has no nodes yet.
+      last = addEdgeChain(
+        list,
+        draft.map((d) => ({ ...d, join: null })),
+      );
+      doc.edgeLists.push(list);
+      index = doc.edgeLists.length - 1;
+    }, { label: existing >= 0 ? "Draw edges" : "Add edge list" });
+    this.selectPath({ kind: "edgeList", list: index, node: last, edge: null });
+    if (id !== "") this.pendingTypePick = id;
+  }
+
+  clearTypePick() {
+    this.pendingTypePick = null;
+  }
+
+  clearObjectPick() {
+    this.pendingObjectPick = null;
+  }
+
+  editLane(
+    sub: number,
+    lane: number,
+    change: (lane: LaneListDoc) => void,
+    options: { label?: string; mergeKey?: string } = {},
+  ) {
+    this.edit((doc) => {
+      const target = doc.subconstructions[sub]?.laneLists?.[lane];
+      if (target) change(target);
+    }, options);
+  }
+
+  editEdgeList(
+    list: number,
+    change: (list: EdgeListDoc) => void,
+    options: { label?: string; mergeKey?: string } = {},
+  ) {
+    this.edit((doc) => {
+      const target = doc.edgeLists?.[list];
+      if (target) change(target);
+    }, options);
+  }
+
+  /** Moves a lane node in x and y as one drag gesture. */
+  moveLaneNode(sub: number, lane: number, node: number, x: number, y: number) {
+    this.editLane(sub, lane, (l) => {
+      const n = l.nodes[node];
+      if (n) n.pos = [x, y, n.pos[2]];
+    }, { label: "Move lane node", mergeKey: `lane:${sub}:${lane}:${node}` });
+  }
+
+  /** Moves an edge list node in x and y as one drag gesture. */
+  moveEdgeListNode(list: number, node: number, x: number, y: number) {
+    this.editEdgeList(list, (l) => {
+      const n = l.nodes[node];
+      if (n) n.pos = [x, y, n.pos[2]];
+    }, { label: "Move edge node", mergeKey: `edges:${list}:${node}` });
+  }
+
+  /** Sets or clears the tangent of the selected node as one drag gesture. */
+  setPathTangent(tangent: Vec3 | undefined) {
+    const s = this.pathSelection;
+    if (s?.kind === "lane" && s.node !== null) {
+      const node = s.node;
+      this.editLane(s.sub, s.lane, (l) => {
+        if (l.nodes[node]) l.nodes[node].tangent = tangent;
+      }, {
+        label: "Set tangent",
+        mergeKey: `tangent:lane:${s.sub}:${s.lane}:${node}`,
+      });
+    } else if (s?.kind === "edgeList" && s.node !== null) {
+      const node = s.node;
+      this.editEdgeList(s.list, (l) => {
+        if (l.nodes[node]) l.nodes[node].tangent = tangent;
+      }, { label: "Set tangent", mergeKey: `tangent:edges:${s.list}:${node}` });
+    }
+  }
+
+  /** Splits a lane edge with a new node and picks it. */
+  addLaneNode(sub: number, lane: number, after: number) {
+    let at = after;
+    this.editLane(sub, lane, (l) => {
+      at = insertLaneNode(l, Math.min(after, l.nodes.length - 2));
+    }, { label: "Add lane node" });
+    this.selectPathNode(at);
+  }
+
+  /** Removes a lane node. It needs no confirmation, and undo brings it back. */
+  removeLaneNodeAt(sub: number, lane: number, node: number) {
+    this.editLane(sub, lane, (l) => removeLaneNode(l, node), {
+      label: "Remove lane node",
+    });
+    this.selectPathNode(null);
+  }
+
+  canRemoveLaneNode(sub: number, lane: number): boolean {
+    const target = this.doc?.subconstructions[sub]?.laneLists?.[lane];
+    return target !== undefined && canRemoveLaneNode(target);
+  }
+
+  /** Removes a lane list. It needs no confirmation, and undo restores it. */
+  removeLane(sub: number, lane: number) {
+    this.edit((doc) => {
+      const layer = doc.subconstructions[sub];
+      layer.laneLists?.splice(lane, 1);
+      if (layer.laneLists?.length === 0) delete layer.laneLists;
+    }, { label: "Remove lane list" });
+    const s = this.pathSelection;
+    if (s?.kind === "lane" && s.sub === sub) {
+      if (s.lane === lane) this.selectPath(null);
+      else if (s.lane > lane) this.pathSelection = { ...s, lane: s.lane - 1 };
+    }
+  }
+
+  /** Runs `run` at once, or after a confirmation when other items depend on it. */
+  #confirmPathRemoval(
+    title: string,
+    name: string,
+    impact: Impact,
+    run: () => void,
+  ) {
+    if (noImpact(impact)) return run();
+    const parts = [
+      impact.runways > 0 ? counted(impact.runways, nounForms("runway")) : "",
+      impact.edgeObjects > 0
+        ? counted(impact.edgeObjects, nounForms("edge object"))
+        : "",
+    ].filter((p) => p !== "");
+    this.requestRemoval({
+      title,
+      name,
+      note: `This also removes ${
+        parts.join(" and ")
+      } that use it. Undo brings everything back.`,
+      run,
+    });
+  }
+
+  #nameOfList(list: EdgeListDoc, index: number): string {
+    return list.label ?? `Edge List ${index + 1}`;
+  }
+
+  requestRemoveEdgeNode(list: number, node: number) {
+    const doc = this.doc;
+    const target = doc?.edgeLists?.[list];
+    if (!doc || !target) return;
+    const id = target.id;
+    this.#confirmPathRemoval(
+      "Remove Edge Node",
+      `Node ${node + 1} of ${this.#nameOfList(target, list)}`,
+      nodeImpact(toJS(doc), id, node),
+      () => {
+        this.edit((d) => removeEdgeNode(d, id, node), {
+          label: "Remove edge node",
+        });
+        this.selectPathNode(null);
+      },
+    );
+  }
+
+  requestRemoveEdge(list: number, edge: number) {
+    const doc = this.doc;
+    const target = doc?.edgeLists?.[list];
+    if (!doc || !target) return;
+    const id = target.id;
+    this.#confirmPathRemoval(
+      "Remove Edge",
+      `Edge ${edge + 1} of ${this.#nameOfList(target, list)}`,
+      edgeImpact(toJS(doc), id, edge),
+      () => {
+        this.edit((d) => removeEdge(d, id, edge), { label: "Remove edge" });
+        this.selectPathEdge(null);
+      },
+    );
+  }
+
+  requestRemoveEdgeList(list: number) {
+    const doc = this.doc;
+    const target = doc?.edgeLists?.[list];
+    if (!doc || !target) return;
+    const id = target.id;
+    this.#confirmPathRemoval(
+      "Remove Edge List",
+      this.#nameOfList(target, list),
+      listImpact(toJS(doc), id),
+      () => {
+        this.edit((d) => removeEdgeList(d, id), {
+          label: "Remove edge list",
+        });
+        const s = this.pathSelection;
+        if (s?.kind === "edgeList") {
+          if (s.list === list) this.selectPath(null);
+          else if (s.list > list) {
+            this.pathSelection = { ...s, list: s.list - 1 };
+          }
+        }
+      },
+    );
+  }
+
+  /** Switching a list between street and track clears its type, which differs. */
+  setEdgeListType(list: number, type: EdgeListType) {
+    const id = this.doc?.edgeLists?.[list]?.id ?? null;
+    this.editEdgeList(list, (l) => {
+      if (l.type === type) return;
+      l.type = type;
+      l.typeName = "";
+    }, { label: "Set edge list type" });
+    if (id !== null) this.pendingTypePick = id;
+  }
+
+  /** Adds a runway to the active layer on the selected or first edge list. */
+  addRunway(kind: RunwayKind) {
+    const doc = this.doc;
+    if (!doc?.edgeLists?.length) {
+      this.message = "Draw an edge list first. A runway runs on its edges.";
+      return;
+    }
+    const sub = Math.min(this.activeSub, doc.subconstructions.length - 1);
+    const s = this.pathSelection;
+    const listId = (s?.kind === "edgeList" ? doc.edgeLists[s.list] : undefined)
+      ?.id ?? doc.edgeLists[0].id;
+    let index = 0;
+    this.edit((d) => {
+      const layer = d.subconstructions[sub];
+      layer.runways ??= [];
+      layer.runways.push(newRunway(kind, listId));
+      index = layer.runways.length - 1;
+    }, { label: "Add runway" });
+    this.selectPath({ kind: "runway", sub, runway: index });
+  }
+
+  editRunway(
+    sub: number,
+    runway: number,
+    change: (runway: RunwayDoc) => void,
+    options: { label?: string } = {},
+  ) {
+    this.edit((doc) => {
+      const target = doc.subconstructions[sub]?.runways?.[runway];
+      if (target) change(target);
+    }, options);
+  }
+
+  /** Removes a runway. It needs no confirmation, and undo restores it. */
+  removeRunway(sub: number, runway: number) {
+    this.edit((doc) => {
+      const layer = doc.subconstructions[sub];
+      layer.runways?.splice(runway, 1);
+      if (layer.runways?.length === 0) delete layer.runways;
+    }, { label: "Remove runway" });
+    const s = this.pathSelection;
+    if (s?.kind === "runway" && s.sub === sub) {
+      if (s.runway === runway) this.selectPath(null);
+      else if (s.runway > runway) {
+        this.pathSelection = { ...s, runway: s.runway - 1 };
+      }
+    }
+  }
+
+  /** Arms a runway field. The next click on an edge list node or edge fills it. */
+  beginRunwayPick(pick: RunwayPick | null) {
+    this.runwayPick = pick;
+  }
+
+  /**
+   * Fills the armed runway field from a click on an edge list node or edge.
+   * Picking a node ends the pick. Picking edges stays armed, and a second click
+   * on a picked edge takes it out. Returns true when the click was used.
+   */
+  completeRunwayPick(listId: string, target: { node?: number; edge?: number }) {
+    const pick = this.runwayPick;
+    if (!pick) return false;
+    const runway = this.doc?.subconstructions[pick.sub]?.runways?.[pick.runway];
+    if (!runway) return false;
+    if (pick.field === "node" && target.node !== undefined) {
+      this.editRunway(pick.sub, pick.runway, (r) => {
+        r.edgeList = listId;
+        r.node = target.node;
+      }, { label: "Pick runway node" });
+      this.runwayPick = null;
+      return true;
+    }
+    if (pick.field === "edges" && target.edge !== undefined) {
+      const edge = target.edge;
+      this.editRunway(pick.sub, pick.runway, (r) => {
+        if (r.edgeList !== listId) {
+          r.edgeList = listId;
+          r.edges = [];
+          r.node = undefined;
+        }
+        r.edges = r.edges.includes(edge)
+          ? r.edges.filter((e) => e !== edge)
+          : [...r.edges, edge];
+      }, { label: "Pick runway edge" });
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * An edge object card was chosen in the Assets pane. It goes on the picked
+   * edge, or replaces the model of the picked edge object.
+   */
+  placeEdgeObject(model: string) {
+    const s = this.pathSelection;
+    if (s?.kind === "edgeObject" && this.selectedEdgeObject) {
+      this.editEdgeObject(s.index, (o) => {
+        o.model = model;
+      });
+    } else if (s?.kind === "edgeList" && s.edge !== null) {
+      this.addEdgeObject(s.list, s.edge, model);
+    } else {
+      this.message = "Pick an edge or an edge object in the scene first.";
+    }
+  }
+
+  /**
+   * Adds an edge object on an edge. Without a model, its model picker opens.
+   */
+  addEdgeObject(list: number, edge: number, model = "") {
+    const target = this.doc?.edgeLists?.[list];
+    if (!target?.edges[edge]) return;
+    const id = target.id;
+    let index = 0;
+    this.edit((doc) => {
+      doc.edgeObjects ??= [];
+      doc.edgeObjects.push({
+        model,
+        edgeList: id,
+        edge,
+        param: 0,
+        left: false,
+      });
+      index = doc.edgeObjects.length - 1;
+    }, { label: "Add edge object" });
+    this.selectPath({ kind: "edgeObject", index });
+    if (model === "") this.pendingObjectPick = index;
+  }
+
+  editEdgeObject(index: number, change: (object: EdgeObjectDoc) => void) {
+    this.edit((doc) => {
+      const target = doc.edgeObjects?.[index];
+      if (target) change(target);
+    }, { label: "Edit edge object" });
+  }
+
+  /** Removes an edge object. It needs no confirmation, and undo restores it. */
+  removeEdgeObject(index: number) {
+    this.edit((doc) => {
+      doc.edgeObjects?.splice(index, 1);
+      if (doc.edgeObjects?.length === 0) delete doc.edgeObjects;
+    }, { label: "Remove edge object" });
+    const s = this.pathSelection;
+    if (s?.kind === "edgeObject") {
+      if (s.index === index) this.selectPath(null);
+      else if (s.index > index) {
+        this.pathSelection = { ...s, index: s.index - 1 };
+      }
+    }
+  }
+
+  /** The Delete key on a path: the picked node or edge first, else the item. */
+  removeSelectedPath() {
+    const s = this.pathSelection;
+    if (!s) return;
+    if (s.kind === "lane") {
+      if (s.node !== null && this.canRemoveLaneNode(s.sub, s.lane)) {
+        this.removeLaneNodeAt(s.sub, s.lane, s.node);
+      } else if (s.node === null) this.removeLane(s.sub, s.lane);
+    } else if (s.kind === "edgeList") {
+      if (s.node !== null) this.requestRemoveEdgeNode(s.list, s.node);
+      else if (s.edge !== null) this.requestRemoveEdge(s.list, s.edge);
+      else this.requestRemoveEdgeList(s.list);
+    } else if (s.kind === "runway") this.removeRunway(s.sub, s.runway);
+    else this.removeEdgeObject(s.index);
   }
 
   removeSelected() {

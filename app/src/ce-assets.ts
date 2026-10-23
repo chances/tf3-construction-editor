@@ -4,6 +4,7 @@ import {
   CHIP_KINDS,
   type ChipKind,
   modelNames,
+  titleCaseId,
   zoneOfLabel,
 } from "@cedit/schema";
 import type { AssetFacet } from "./api.ts";
@@ -817,6 +818,23 @@ export class CeAssets extends observer(LitElement) {
                       </div>
                     </li>
                   `,
+              )}
+              ${store.edgeObjectAssets.map((o) =>
+                html`
+                  <li class="asset">
+                    <button
+                      class="item"
+                      title=${o.id}
+                      @click=${() => store.placeEdgeObject(o.id)}
+                    >
+                      <strong>${titleCaseId(o.name)}</strong>
+                      <span class="muted">${o.name}</span>
+                    </button>
+                    <div class="chips">
+                      <span class="chip">Edge Object</span>
+                    </div>
+                  </li>
+                `
               )}
             </ul>
           </div>

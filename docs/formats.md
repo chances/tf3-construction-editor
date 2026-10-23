@@ -87,6 +87,19 @@ value to `.tmat`). The mask is an uncompressed 8-bit grayscale TGA (image type
 3). `texCoords` per face vertex normalize over the face bounding box. The tiling
 meaning of `texSize` against `texCoords` is not verified (open item 2).
 
+## Paths
+
+| Field                        | Shape                                                                                                                 | Source                                                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `edgeLists[].edges`          | Two `{ position, tangent }` entries per edge. A tangent's length equals the edge length.                              | [Construction basics](https://wiki.transportfever3.com/doku.php?id=modding:constructions:basics), tealdef |
+| `edgeLists[].params.type`    | Street template id such as `/infrastructure/street/airport/airport_runway_small.street_template`. Not in the tealdef. | shipped `air/airfield.script.lua`. Not checked in game.                                                   |
+| `edgeLists[].snapNodes`      | Entry indices. The editor writes the first entry that holds the node.                                                 | wiki. Not checked in game.                                                                                |
+| `trafficLightNodePreference` | Pairs of entry index and `"YES"`, `"NO"`, or `"AUTO"`. The tealdef has `trafficLightYes` and `trafficLightNo`.        | wiki (open item 4)                                                                                        |
+| `runways[].node`, `.edges`   | `{ -1, n }`: `-1` means the n-th node or edge of all `edgeLists`, counted in order.                                   | wiki, shipped airfield. Not checked in game.                                                              |
+| `edgeObjects[]`              | `{ edge, param, left, model }`. `edge` counts edges across all edge lists. `param` is meters from the start node.     | wiki, shipped airfield. Item 9.                                                                           |
+| `laneLists[].nodes`          | Two `{ position, tangent, width }` entries per edge.                                                                  | wiki, tealdef                                                                                             |
+| Edge object `.con.lua`       | Declares `edgeObject = {}`. The id is the path without `.lua`, for example `/assets/stations/air/signs/sign_a.con`.   | shipped `stations.zip`                                                                                    |
+
 ## Model Silhouette
 
 The server rasterizes the LOD 0 triangles top-down into at most 160 cells on the

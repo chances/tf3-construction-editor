@@ -37,6 +37,12 @@ import { MdlError } from "./mdl.ts";
 import { MshError } from "./msh.ts";
 import { openInDefaultApp } from "./open.ts";
 import {
+  buildPathTypeIndex,
+  indexBasePathTypes,
+  type PathTypeEntry,
+  pathTypeName,
+} from "./path-types.ts";
+import {
   buildAssetIndex,
   createConstruction,
   createMod,
@@ -104,6 +110,8 @@ const ROUTES: { method: string; pattern: URLPattern; name: string }[] = [
   ["GET", "/api/mods/:dir/image", "image"],
   ["GET", "/api/mods/:dir/gtex", "gtex"],
   ["GET", "/api/mods/:dir/gtex-image", "gtexImage"],
+  ["GET", "/api/mods/:dir/edge-types", "edgeTypes"],
+  ["GET", "/api/mods/:dir/edge-objects", "edgeObjects"],
 ].map(([method, path, name]) => ({
   method,
   pattern: new URLPattern({ pathname: path }),
@@ -198,6 +206,11 @@ export function createHandler(
     baseGtexEntries ??= config.installRoot === null
       ? Promise.resolve([])
       : indexBaseGtex(config.installRoot);
+  let basePathTypeEntries: Promise<PathTypeEntry[]> | undefined;
+  const basePathTypes = () =>
+    basePathTypeEntries ??= config.installRoot === null
+      ? Promise.resolve([])
+      : indexBasePathTypes(config.installRoot);
   /** Encoded thumbnails by archive, entry, and size. Oldest leaves first. */
   const thumbnails = new Map<string, Uint8Array>();
   const THUMBNAIL_CACHE = 512;
@@ -207,7 +220,18 @@ export function createHandler(
     baseEntries = undefined;
     baseImages = undefined;
     baseGtexEntries = undefined;
+    basePathTypeEntries = undefined;
   });
+
+  async function pathTypeIndexFor(dir: string) {
+    const loaded = await loadMod(config.modsRoot, dir);
+    return await buildPathTypeIndex(
+      await basePathTypes(),
+      config.modsRoot,
+      dir,
+      loaded.mod,
+    );
+  }
 
   async function imageIndexFor(dir: string) {
     const loaded = await loadMod(config.modsRoot, dir);
@@ -376,6 +400,7 @@ export function createHandler(
             baseEntries = undefined;
             baseImages = undefined;
             baseGtexEntries = undefined;
+            basePathTypeEntries = undefined;
           }
           return json({
             installRoot: config.installRoot,
@@ -438,9 +463,14 @@ export function createHandler(
           const doc: ConstructionDoc = parseConstruction(await req.json());
           const { index } = await indexFor(p.dir);
           const images = await imageIndexFor(p.dir);
+          const pathTypes = await pathTypeIndexFor(p.dir);
           return json(
             lintConstruction(doc, {
               resolveModel: (id) => index.has(id),
+              // With no edge object indexed the game is not set up.
+              resolveEdgeObject: pathTypes.count("edgeObject") === 0
+                ? undefined
+                : (id) => pathTypes.has("edgeObject", id),
               // With no images indexed the game is not set up, so the index
               // cannot say whether an icon exists.
               resolveImage: (id) =>
@@ -532,6 +562,29 @@ export function createHandler(
             );
           }
           return await thumbnailResponse(req, p.dir, image, url);
+        }
+        case "edgeTypes":
+        case "edgeObjects": {
+          const index = await pathTypeIndexFor(p.dir);
+          const limit = Math.min(
+            Number(url.searchParams.get("limit") ?? 60),
+            200,
+          );
+          const kind = route.name === "edgeObjects"
+            ? "edgeObject"
+            : url.searchParams.get("type") === "TRACK"
+            ? "track"
+            : "street";
+          return json({
+            total: index.count(kind),
+            entries: index.search(kind, url.searchParams.get("q") ?? "", limit)
+              .map((e) => ({
+                id: e.id,
+                name: pathTypeName(e.id),
+                source: e.source,
+                modId: e.modId,
+              })),
+          });
         }
         case "model": {
           const id = url.searchParams.get("id");

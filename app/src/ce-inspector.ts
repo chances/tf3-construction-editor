@@ -1,6 +1,7 @@
 import { css, html, LitElement } from "lit";
 import "./ce-scene.ts";
 import "./ce-properties.ts";
+import "./ce-path-properties.ts";
 import "./ce-problems.ts";
 import "./ce-toggle-button.ts";
 import { plusIcon } from "./icons.ts";

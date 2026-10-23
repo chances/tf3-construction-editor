@@ -2,13 +2,24 @@ import { isMat4 } from "./transform.ts";
 import type {
   AlignmentMode,
   ConstructionDoc,
+  EdgeListDoc,
+  EdgeListType,
+  EdgeNodeDoc,
+  EdgeObjectDoc,
   GroundFaceDoc,
   GroundFaceMode,
   GroundFaceModeType,
+  LaneListDoc,
+  LaneNodeDoc,
   ModelPlacement,
   ModInfoJson,
   ModJson,
+  RunwayDoc,
+  RunwayKind,
   SubconstructionDoc,
+  TrafficLight,
+  TransportMode,
+  Vec3,
 } from "./types.ts";
 
 export class SchemaError extends Error {
@@ -160,6 +171,171 @@ function parseGroundFace(value: unknown, path: string): GroundFaceDoc {
   return face;
 }
 
+function bool(value: unknown, path: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new SchemaError(path, "expected a boolean");
+  }
+  return value;
+}
+
+function vec3(value: unknown, path: string): Vec3 {
+  const a = arr(value, path);
+  if (a.length !== 3) throw new SchemaError(path, "expected 3 numbers");
+  return [
+    num(a[0], `${path}.0`),
+    num(a[1], `${path}.1`),
+    num(a[2], `${path}.2`),
+  ];
+}
+
+function oneOf<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  path: string,
+): T {
+  if (typeof value !== "string" || !allowed.includes(value as T)) {
+    throw new SchemaError(path, `expected one of ${allowed.join(", ")}`);
+  }
+  return value as T;
+}
+
+const TRANSPORT_MODES: TransportMode[] = [
+  "PERSON",
+  "CARGO",
+  "CAR",
+  "BUS",
+  "TRUCK",
+  "TRAM",
+  "ELECTRIC_TRAM",
+  "TRAIN",
+  "ELECTRIC_TRAIN",
+  "AIRCRAFT",
+  "SHIP",
+  "SMALL_AIRCRAFT",
+  "SMALL_SHIP",
+  "HELICOPTER",
+  "TRAM_TRACK",
+  "ELECTRIC_TRAM_TRACK",
+];
+
+function parseLaneList(value: unknown, path: string): LaneListDoc {
+  const o = obj(value, path);
+  const lane: LaneListDoc = {
+    nodes: arr(o.nodes, `${path}.nodes`).map((n, i) => {
+      const np = `${path}.nodes.${i}`;
+      const no = obj(n, np);
+      const node: LaneNodeDoc = {
+        pos: vec3(no.pos, `${np}.pos`),
+        width: num(no.width, `${np}.width`),
+      };
+      if (no.tangent !== undefined) {
+        node.tangent = vec3(no.tangent, `${np}.tangent`);
+      }
+      return node;
+    }),
+    transportModes: arr(o.transportModes, `${path}.transportModes`).map((
+      m,
+      i,
+    ) => oneOf(m, TRANSPORT_MODES, `${path}.transportModes.${i}`)),
+    speedLimit: num(o.speedLimit, `${path}.speedLimit`),
+    linkable: bool(o.linkable, `${path}.linkable`),
+    forwardOnly: bool(o.forwardOnly, `${path}.forwardOnly`),
+    needsReservation: bool(o.needsReservation, `${path}.needsReservation`),
+    pedestrianWalkPenalty: num(
+      o.pedestrianWalkPenalty,
+      `${path}.pedestrianWalkPenalty`,
+    ),
+  };
+  const label = optStr(o, "label", path);
+  if (label !== undefined) lane.label = label;
+  if (o.transf !== undefined) {
+    if (!isMat4(o.transf)) {
+      throw new SchemaError(`${path}.transf`, "expected 16 finite numbers");
+    }
+    lane.transf = o.transf;
+  }
+  return lane;
+}
+
+function parseRunway(value: unknown, path: string): RunwayDoc {
+  const o = obj(value, path);
+  const runway: RunwayDoc = {
+    kind: oneOf<RunwayKind>(o.kind, ["LANDING", "TAKEOFF"], `${path}.kind`),
+    edgeList: str(o.edgeList, `${path}.edgeList`),
+    edges: arr(o.edges, `${path}.edges`).map((e, i) =>
+      num(e, `${path}.edges.${i}`)
+    ),
+  };
+  const label = optStr(o, "label", path);
+  if (label !== undefined) runway.label = label;
+  const node = optNum(o, "node", path);
+  if (node !== undefined) runway.node = node;
+  return runway;
+}
+
+function parseEdgeList(value: unknown, path: string): EdgeListDoc {
+  const o = obj(value, path);
+  const list: EdgeListDoc = {
+    id: str(o.id, `${path}.id`),
+    type: oneOf<EdgeListType>(o.type, ["STREET", "TRACK"], `${path}.type`),
+    typeName: str(o.typeName, `${path}.typeName`),
+    alignTerrain: bool(o.alignTerrain, `${path}.alignTerrain`),
+    nodes: arr(o.nodes, `${path}.nodes`).map((n, i) => {
+      const np = `${path}.nodes.${i}`;
+      const no = obj(n, np);
+      const node: EdgeNodeDoc = { pos: vec3(no.pos, `${np}.pos`) };
+      if (no.tangent !== undefined) {
+        node.tangent = vec3(no.tangent, `${np}.tangent`);
+      }
+      if (no.snap !== undefined) node.snap = bool(no.snap, `${np}.snap`);
+      if (no.free !== undefined) node.free = bool(no.free, `${np}.free`);
+      if (no.trafficLight !== undefined) {
+        node.trafficLight = oneOf<TrafficLight>(
+          no.trafficLight,
+          ["YES", "NO", "AUTO"],
+          `${np}.trafficLight`,
+        );
+      }
+      return node;
+    }),
+    edges: arr(o.edges, `${path}.edges`).map((e, i) => {
+      const pair = arr(e, `${path}.edges.${i}`);
+      if (pair.length !== 2) {
+        throw new SchemaError(`${path}.edges.${i}`, "expected 2 node indices");
+      }
+      return [
+        num(pair[0], `${path}.edges.${i}.0`),
+        num(pair[1], `${path}.edges.${i}.1`),
+      ] as [number, number];
+    }),
+  };
+  const label = optStr(o, "label", path);
+  if (label !== undefined) list.label = label;
+  if (o.tag2nodes !== undefined) {
+    const tags = obj(o.tag2nodes, `${path}.tag2nodes`);
+    list.tag2nodes = Object.fromEntries(
+      Object.entries(tags).map(([tag, nodes]) => [
+        tag,
+        arr(nodes, `${path}.tag2nodes.${tag}`).map((n, i) =>
+          num(n, `${path}.tag2nodes.${tag}.${i}`)
+        ),
+      ]),
+    );
+  }
+  return list;
+}
+
+function parseEdgeObject(value: unknown, path: string): EdgeObjectDoc {
+  const o = obj(value, path);
+  return {
+    model: str(o.model, `${path}.model`),
+    edgeList: str(o.edgeList, `${path}.edgeList`),
+    edge: num(o.edge, `${path}.edge`),
+    param: num(o.param, `${path}.param`),
+    left: bool(o.left, `${path}.left`),
+  };
+}
+
 function parseSubconstruction(
   value: unknown,
   path: string,
@@ -170,6 +346,16 @@ function parseSubconstruction(
       parsePlacement(m, `${path}.models.${i}`)
     ),
   };
+  if (o.laneLists !== undefined) {
+    sub.laneLists = arr(o.laneLists, `${path}.laneLists`).map((l, i) =>
+      parseLaneList(l, `${path}.laneLists.${i}`)
+    );
+  }
+  if (o.runways !== undefined) {
+    sub.runways = arr(o.runways, `${path}.runways`).map((r, i) =>
+      parseRunway(r, `${path}.runways.${i}`)
+    );
+  }
   if (o.groundFaces !== undefined) {
     sub.groundFaces = arr(o.groundFaces, `${path}.groundFaces`).map((f, i) =>
       parseGroundFace(f, `${path}.groundFaces.${i}`)
@@ -251,6 +437,16 @@ export function parseConstruction(value: unknown): ConstructionDoc {
       );
     }
     doc.costs.noCostAtAll = costs.noCostAtAll;
+  }
+  if (o.edgeLists !== undefined) {
+    doc.edgeLists = arr(o.edgeLists, "construction.edgeLists").map((l, i) =>
+      parseEdgeList(l, `construction.edgeLists.${i}`)
+    );
+  }
+  if (o.edgeObjects !== undefined) {
+    doc.edgeObjects = arr(o.edgeObjects, "construction.edgeObjects").map(
+      (e, i) => parseEdgeObject(e, `construction.edgeObjects.${i}`),
+    );
   }
   if (o.snapPoint !== undefined) {
     doc.snapPoint = obj(

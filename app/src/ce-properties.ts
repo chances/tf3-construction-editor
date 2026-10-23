@@ -10,9 +10,12 @@ import {
 } from "@cedit/schema";
 import { canRemoveVertex, moveVertex } from "./face-edit.ts";
 import {
+  edgesIcon,
+  laneIcon,
   plusIcon,
   polygonIcon,
   rectangleIcon,
+  runwayIcon,
   trashIcon,
   xIcon,
 } from "./icons.ts";
@@ -72,212 +75,215 @@ function menuCategoryGroups(current: string) {
   return groups;
 }
 
+/** Layout shared by the Properties pane and its path panel. */
+export const propertiesStyles = [
+  sharedStyles,
+  chipStyles,
+  css`
+    /*
+    * Every vertical space between components is this one gap. Elements
+    * carry no margins of their own, so the spacing stays consistent.
+    */
+    :host {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    /* The pane scrolls, so children keep their height instead of shrinking. */
+    :host > * {
+      flex: none;
+    }
+    h2,
+    p,
+    fieldset,
+    .field {
+      margin: 0;
+    }
+    h2 {
+      background: var(--ce-surface);
+      inset-block-start: 0;
+      padding-block: 0.75rem 0;
+      position: sticky;
+      z-index: 1;
+    }
+    fieldset {
+      border: 1px solid var(--ce-border);
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      min-inline-size: 0;
+      padding: 0.5rem;
+    }
+    legend {
+      color: var(--ce-muted);
+      font-size: 11px;
+    }
+    /*
+    * A group title row that sits on the top border. Each piece masks only
+    * the border behind itself, so the border shows between the pieces.
+    */
+    fieldset.titled {
+      /* The title text is about 1.22em tall and centred on the border, so
+        half of it, 0.61em, hangs above the box. */
+      --title-size: 11px;
+      --title-overhang: calc(var(--title-size) * 0.61);
+      /* The one margin in this pane: it lowers the box by the overhang, so
+        the title text, not the border, sits one gap below its neighbour. */
+      margin-block-start: var(--title-overhang);
+      min-block-size: 1.5rem;
+      /* Content starts 0.5rem below the title text, matching the bottom. The
+        extra 0.1rem is the title row's own padding, measured in the page. */
+      padding-block-start: calc(var(--title-overhang) + 0.6rem - 1px);
+      position: relative;
+    }
+    .group-title {
+      align-items: center;
+      color: var(--ce-muted);
+      display: flex;
+      font-size: var(--title-size);
+      inset-block-start: 0;
+      inset-inline: 0.5rem;
+      justify-content: space-between;
+      pointer-events: none;
+      position: absolute;
+      translate: 0 -50%;
+    }
+    .group-title > * {
+      background: var(--ce-surface);
+      padding-inline: 0.3rem;
+      pointer-events: auto;
+    }
+    .legend-check {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.3rem;
+    }
+    /* Three costs in one row: right-aligned figures. */
+    .costs {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    /*
+    * The fields and the "free" line share one grid cell. The fields stay
+    * in the layout, hidden, so the box keeps its height in both states.
+    */
+    .costs-slot {
+      display: grid;
+    }
+    .costs-slot > * {
+      grid-area: 1 / 1;
+    }
+    .costs.free {
+      visibility: hidden;
+    }
+    /* Muted text that stands in for a group box's empty or disabled content. */
+    .placeholder {
+      align-self: center;
+      color: var(--ce-muted);
+      text-align: center;
+    }
+    .costs ce-spinner::part(input) {
+      font-variant-numeric: tabular-nums;
+      text-align: end;
+    }
+    .cols {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: 1fr 1fr;
+    }
+    /* The label takes all free width, the tag field only what it needs. */
+    .cols.label-tag {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .id {
+      overflow-wrap: anywhere;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .actions button {
+      align-items: center;
+      display: inline-flex;
+      gap: 0.4rem;
+    }
+    /* The heading actions are as tall as the Scene heading actions. */
+    button.icon-button {
+      align-items: center;
+      block-size: 1.5rem;
+      box-sizing: border-box;
+      display: inline-flex;
+      inline-size: 1.5rem;
+      justify-content: center;
+      padding: 0;
+    }
+    .vertex-grid {
+      align-items: center;
+      display: grid;
+      gap: 0.125rem;
+      grid-template-columns: 0.9rem repeat(2, minmax(0, 1fr)) 1.25rem;
+    }
+    .vertex-grid.head {
+      color: var(--ce-muted);
+      font-size: 11px;
+    }
+    .vertex-grid .index {
+      color: var(--ce-muted);
+      font-variant-numeric: tabular-nums;
+      text-align: end;
+    }
+    .vertex-grid[aria-current="true"] .index {
+      color: var(--ce-accent);
+      font-weight: 600;
+    }
+    /* Paint modes share one box, split by a rule, so no group nests. */
+    .mode {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .mode + .mode {
+      border-block-start: 1px solid var(--ce-border);
+      padding-block-start: 0.5rem;
+    }
+    .mode-head {
+      align-items: end;
+      display: grid;
+      gap: 0.25rem;
+      grid-template-columns: minmax(0, 1fr) 1.5rem;
+    }
+    details.alignment {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    details.alignment[open] > summary {
+      margin-block-end: 0.5rem;
+    }
+    details.alignment > * + * {
+      margin-block-start: 0.5rem;
+    }
+    summary {
+      color: var(--ce-muted);
+      cursor: pointer;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  `,
+];
+
 /** Fields for whatever the scene tree has selected. */
 export class CeProperties extends observer(LitElement) {
-  static override styles = [
-    sharedStyles,
-    chipStyles,
-    css`
-      /*
-      * Every vertical space between components is this one gap. Elements
-      * carry no margins of their own, so the spacing stays consistent.
-      */
-      :host {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
-      /* The pane scrolls, so children keep their height instead of shrinking. */
-      :host > * {
-        flex: none;
-      }
-      h2,
-      p,
-      fieldset,
-      .field {
-        margin: 0;
-      }
-      h2 {
-        background: var(--ce-surface);
-        inset-block-start: 0;
-        padding-block: 0.75rem 0;
-        position: sticky;
-        z-index: 1;
-      }
-      fieldset {
-        border: 1px solid var(--ce-border);
-        border-radius: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        min-inline-size: 0;
-        padding: 0.5rem;
-      }
-      legend {
-        color: var(--ce-muted);
-        font-size: 11px;
-      }
-      /*
-      * A group title row that sits on the top border. Each piece masks only
-      * the border behind itself, so the border shows between the pieces.
-      */
-      fieldset.titled {
-        /* The title text is about 1.22em tall and centred on the border, so
-          half of it, 0.61em, hangs above the box. */
-        --title-size: 11px;
-        --title-overhang: calc(var(--title-size) * 0.61);
-        /* The one margin in this pane: it lowers the box by the overhang, so
-          the title text, not the border, sits one gap below its neighbour. */
-        margin-block-start: var(--title-overhang);
-        min-block-size: 1.5rem;
-        /* Content starts 0.5rem below the title text, matching the bottom. The
-          extra 0.1rem is the title row's own padding, measured in the page. */
-        padding-block-start: calc(var(--title-overhang) + 0.6rem - 1px);
-        position: relative;
-      }
-      .group-title {
-        align-items: center;
-        color: var(--ce-muted);
-        display: flex;
-        font-size: var(--title-size);
-        inset-block-start: 0;
-        inset-inline: 0.5rem;
-        justify-content: space-between;
-        pointer-events: none;
-        position: absolute;
-        translate: 0 -50%;
-      }
-      .group-title > * {
-        background: var(--ce-surface);
-        padding-inline: 0.3rem;
-        pointer-events: auto;
-      }
-      .legend-check {
-        align-items: center;
-        display: inline-flex;
-        gap: 0.3rem;
-      }
-      /* Three costs in one row: right-aligned figures. */
-      .costs {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-      /*
-      * The fields and the "free" line share one grid cell. The fields stay
-      * in the layout, hidden, so the box keeps its height in both states.
-      */
-      .costs-slot {
-        display: grid;
-      }
-      .costs-slot > * {
-        grid-area: 1 / 1;
-      }
-      .costs.free {
-        visibility: hidden;
-      }
-      /* Muted text that stands in for a group box's empty or disabled content. */
-      .placeholder {
-        align-self: center;
-        color: var(--ce-muted);
-        text-align: center;
-      }
-      .costs ce-spinner::part(input) {
-        font-variant-numeric: tabular-nums;
-        text-align: end;
-      }
-      .cols {
-        display: grid;
-        gap: 0.75rem;
-        grid-template-columns: 1fr 1fr;
-      }
-      /* The label takes all free width, the tag field only what it needs. */
-      .cols.label-tag {
-        grid-template-columns: minmax(0, 1fr) auto;
-      }
-      .id {
-        overflow-wrap: anywhere;
-      }
-      .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.25rem;
-      }
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-      .actions button {
-        align-items: center;
-        display: inline-flex;
-        gap: 0.4rem;
-      }
-      /* The heading actions are as tall as the Scene heading actions. */
-      button.icon-button {
-        align-items: center;
-        block-size: 1.5rem;
-        box-sizing: border-box;
-        display: inline-flex;
-        inline-size: 1.5rem;
-        justify-content: center;
-        padding: 0;
-      }
-      .vertex-grid {
-        align-items: center;
-        display: grid;
-        gap: 0.125rem;
-        grid-template-columns: 0.9rem repeat(2, minmax(0, 1fr)) 1.25rem;
-      }
-      .vertex-grid.head {
-        color: var(--ce-muted);
-        font-size: 11px;
-      }
-      .vertex-grid .index {
-        color: var(--ce-muted);
-        font-variant-numeric: tabular-nums;
-        text-align: end;
-      }
-      .vertex-grid[aria-current="true"] .index {
-        color: var(--ce-accent);
-        font-weight: 600;
-      }
-      /* Paint modes share one box, split by a rule, so no group nests. */
-      .mode {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-      .mode + .mode {
-        border-block-start: 1px solid var(--ce-border);
-        padding-block-start: 0.5rem;
-      }
-      .mode-head {
-        align-items: end;
-        display: grid;
-        gap: 0.25rem;
-        grid-template-columns: minmax(0, 1fr) 1.5rem;
-      }
-      details.alignment {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-      details.alignment[open] > summary {
-        margin-block-end: 0.5rem;
-      }
-      details.alignment > * + * {
-        margin-block-start: 0.5rem;
-      }
-      summary {
-        color: var(--ce-muted);
-        cursor: pointer;
-        font-size: 11px;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-    `,
-  ];
+  static override styles = propertiesStyles;
 
   override render() {
     if (!store.doc) return null;
@@ -288,6 +294,8 @@ export class CeProperties extends observer(LitElement) {
         ? this.#model()
         : target === "face" && store.selectedFace
         ? this.#face()
+        : target === "path" && store.pathSelection
+        ? html`<ce-path-properties></ce-path-properties>`
         : target === "layer"
         ? this.#layer()
         : this.#construction()}
@@ -342,6 +350,27 @@ export class CeProperties extends observer(LitElement) {
           aria-label="Drag a rectangular ground face on the surface"
           @click=${() => store.setTool("rect")}
         >${rectangleIcon(14)} Draw Rectangle</button>
+        <button
+          type="button"
+          title="Draw Lane List"
+          aria-label="Click out a lane list on the surface"
+          @click=${() => store.setTool("lane")}
+        >${laneIcon(14)} Draw Lane List</button>
+        <button
+          type="button"
+          title="Draw Edge List"
+          aria-label="Click out street or track edges on the surface"
+          @click=${() => store.setTool("edges")}
+        >${edgesIcon(14)} Draw Edge List</button>
+        <button
+          type="button"
+          ?disabled=${!store.doc?.edgeLists?.length}
+          title=${store.doc?.edgeLists?.length
+            ? "Add Runway"
+            : "Draw an edge list first"}
+          aria-label="Add a runway on an edge list to this layer"
+          @click=${() => store.addRunway("LANDING")}
+        >${runwayIcon(14)} Add Runway</button>
       </div>
     `;
   }

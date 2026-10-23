@@ -114,10 +114,14 @@ export class CeCanvasToolbar extends observer(LitElement) {
 
   /** Whole-metre Z extent of the placed models, so the thumbs span them. */
   #zExtent(): { min: number; max: number } {
-    const zs =
-      store.doc?.subconstructions.flatMap((s) =>
-        s.models.map((m) => m.transf[14])
-      ) ?? [];
+    const zs = [
+      ...store.doc?.subconstructions.flatMap((s) => [
+        ...s.models.map((m) => m.transf[14]),
+        ...(s.laneLists ?? []).flatMap((l) => l.nodes.map((n) => n.pos[2])),
+      ]) ?? [],
+      ...store.doc?.edgeLists?.flatMap((l) => l.nodes.map((n) => n.pos[2])) ??
+        [],
+    ];
     if (zs.length === 0) return DEFAULT_Z;
     const min = Math.floor(Math.min(...zs));
     const max = Math.ceil(Math.max(...zs));
@@ -139,6 +143,13 @@ export class CeCanvasToolbar extends observer(LitElement) {
             "rectangle",
             "Ground Face Rectangle",
             "Drag a rectangular ground face",
+          ],
+          ["lane", "lane", "Lane List", "Click out a lane list"],
+          [
+            "edges",
+            "edges",
+            "Edge List",
+            "Click out street or track edges. Select an edge list first to extend it",
           ],
         ] as const).map(([tool, icon, title, label]) =>
           html`

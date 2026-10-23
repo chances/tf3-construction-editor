@@ -187,7 +187,25 @@ export const api = {
       "GET",
       `/mods/${enc(dir)}/gtex?q=${enc(q)}&limit=${limit}`,
     ),
+  edgeTypes: (dir: string, type: "STREET" | "TRACK", q: string, limit = 50) =>
+    call<{ total: number; entries: PathTypeListing[] }>(
+      "GET",
+      `/mods/${enc(dir)}/edge-types?type=${type}&q=${enc(q)}&limit=${limit}`,
+    ),
+  edgeObjects: (dir: string, q: string, limit = 50) =>
+    call<{ total: number; entries: PathTypeListing[] }>(
+      "GET",
+      `/mods/${enc(dir)}/edge-objects?q=${enc(q)}&limit=${limit}`,
+    ),
 };
+
+/** A street type, track type, or edge object the server indexed. */
+export interface PathTypeListing {
+  id: string;
+  name: string;
+  source: "base" | "mod" | "dependency";
+  modId?: string;
+}
 
 export interface GtexListing {
   id: string;

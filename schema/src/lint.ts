@@ -9,6 +9,7 @@ import {
   selfIntersects,
 } from "./ground-face.ts";
 import { decomposeTransf } from "./transform.ts";
+import { entryIndexOfNode, MIN_LANE_NODES } from "./paths.ts";
 import type {
   ConstructionDoc,
   GroundFaceDoc,
@@ -28,6 +29,18 @@ export const UNVERIFIED_FIELDS: Record<string, string> = {
   modelScale: "A scaled model transform is not checked in game.",
   groundFaceAlignment:
     "`loop` and the alignment fields come from the wiki and are not checked in game.",
+  edgeLists:
+    "The tealdef lists `edgeLists` on no level. Export writes them at the top level of the result. Not checked in game.",
+  edgeObjects:
+    "The tealdef lists `edgeObjects` on no level. Export writes them at the top level of the result. Not checked in game.",
+  edgeListParams:
+    "The picked street or track type is written to `params.type`, as shipped scripts do. The tealdef has no `params`. Not checked in game.",
+  trafficLights:
+    "`trafficLightNodePreference` is the wiki form. The tealdef has `trafficLightYes` and `trafficLightNo`. Not checked in game.",
+  tag2nodes:
+    "`tag2nodes` follows the tealdef casing. The wiki example writes `tag2Nodes`. Not checked in game.",
+  runwayRefs:
+    "A runway refers to the construction-wide node and edge numbers with `-1` as the first value, as the shipped airfield does. Not checked in game.",
 };
 
 export interface LintContext {
@@ -39,6 +52,11 @@ export interface LintContext {
    * Omit it to skip image checks.
    */
   resolveImage?(id: string): boolean | null;
+  /**
+   * Returns true when the edge object `.con` id exists in the index. Omit it
+   * to skip the check.
+   */
+  resolveEdgeObject?(id: string): boolean;
 }
 
 /** Why an image id is not valid, written for the person who typed it. */
@@ -150,6 +168,174 @@ export function lintGroundFace(face: GroundFaceDoc, path: string): Issue[] {
   return issues;
 }
 
+const isIndex = (n: number | undefined, length: number): n is number =>
+  n !== undefined && Number.isInteger(n) && n >= 0 && n < length;
+
+/** Lint rules for lane lists, edge lists, runways, and edge objects. */
+export function lintPaths(doc: ConstructionDoc, ctx: LintContext): Issue[] {
+  const issues: Issue[] = [];
+  const add = (
+    severity: Issue["severity"],
+    rule: string,
+    path: string,
+    message: string,
+  ) => issues.push({ severity, rule, path, message });
+  const lists = doc.edgeLists ?? [];
+  doc.subconstructions.forEach((sub, si) => {
+    (sub.laneLists ?? []).forEach((lane, li) => {
+      if (lane.nodes.length < MIN_LANE_NODES) {
+        add(
+          "error",
+          "lane-list-nodes",
+          `subconstructions.${si}.laneLists.${li}.nodes`,
+          `A lane list needs at least ${MIN_LANE_NODES} nodes.`,
+        );
+      }
+      if (lane.transportModes.length === 0) {
+        add(
+          "warning",
+          "lane-list-modes",
+          `subconstructions.${si}.laneLists.${li}.transportModes`,
+          "A lane list with no transport mode carries nothing.",
+        );
+      }
+    });
+    (sub.runways ?? []).forEach((runway, ri) => {
+      const path = `subconstructions.${si}.runways.${ri}`;
+      const list = lists.find((l) => l.id === runway.edgeList);
+      if (!list) {
+        add(
+          "error",
+          "runway-edge-list",
+          `${path}.edgeList`,
+          "Pick the edge list this runway runs on.",
+        );
+        return;
+      }
+      if (
+        !isIndex(runway.node, list.nodes.length) ||
+        entryIndexOfNode(list, runway.node) < 0
+      ) {
+        add(
+          "error",
+          "runway-node",
+          `${path}.node`,
+          "Pick a node of the edge list that an edge uses.",
+        );
+      }
+      if (runway.edges.length === 0) {
+        add(
+          "error",
+          "runway-edges",
+          `${path}.edges`,
+          "Pick at least one edge for the runway.",
+        );
+      } else if (runway.edges.some((e) => !isIndex(e, list.edges.length))) {
+        add(
+          "error",
+          "runway-edges",
+          `${path}.edges`,
+          "An edge of the runway is not in the edge list.",
+        );
+      }
+      add("warning", "unverified-field", path, UNVERIFIED_FIELDS.runwayRefs);
+    });
+  });
+  lists.forEach((list, li) => {
+    const path = `edgeLists.${li}`;
+    if (list.edges.length === 0) {
+      add(
+        "error",
+        "edge-list-edges",
+        `${path}.edges`,
+        "An edge list needs at least one edge.",
+      );
+    }
+    if (list.typeName.trim() === "") {
+      add(
+        "error",
+        "edge-list-type",
+        `${path}.typeName`,
+        `Pick a ${
+          list.type === "STREET" ? "street" : "track"
+        } type for this edge list.`,
+      );
+    }
+    list.edges.forEach(([a, b], ei) => {
+      if (
+        !isIndex(a, list.nodes.length) || !isIndex(b, list.nodes.length) ||
+        a === b
+      ) {
+        add(
+          "error",
+          "edge-index-range",
+          `${path}.edges.${ei}`,
+          "An edge must join two different nodes of the list.",
+        );
+      }
+    });
+    for (const [tag, nodes] of Object.entries(list.tag2nodes ?? {})) {
+      if (nodes.some((n) => !isIndex(n, list.nodes.length))) {
+        add(
+          "error",
+          "edge-index-range",
+          `${path}.tag2nodes.${tag}`,
+          `A node of the tag ${tag} is not in the edge list.`,
+        );
+      }
+    }
+    if (list.tag2nodes && Object.keys(list.tag2nodes).length > 0) {
+      add("warning", "unverified-field", path, UNVERIFIED_FIELDS.tag2nodes);
+    }
+    if (list.nodes.some((n) => n.trafficLight !== undefined)) {
+      add("warning", "unverified-field", path, UNVERIFIED_FIELDS.trafficLights);
+    }
+    add("warning", "unverified-field", path, UNVERIFIED_FIELDS.edgeLists);
+    add("warning", "unverified-field", path, UNVERIFIED_FIELDS.edgeListParams);
+  });
+  const perEdge = new Map<string, number>();
+  (doc.edgeObjects ?? []).forEach((obj, oi) => {
+    const path = `edgeObjects.${oi}`;
+    const list = lists.find((l) => l.id === obj.edgeList);
+    if (!list || !isIndex(obj.edge, list.edges.length)) {
+      add(
+        "error",
+        "edge-index-range",
+        `${path}.edge`,
+        "Pick an edge of an edge list for this object.",
+      );
+    } else {
+      const key = `${obj.edgeList}:${obj.edge}`;
+      perEdge.set(key, (perEdge.get(key) ?? 0) + 1);
+      if (perEdge.get(key) === 2) {
+        add(
+          "warning",
+          "edge-object-per-edge",
+          `${path}.edge`,
+          "More than one edge object sits on this edge. A script can add only one per edge.",
+        );
+      }
+    }
+    if (obj.model.trim() === "") {
+      add(
+        "error",
+        "edge-object-model",
+        `${path}.model`,
+        "Pick an edge object model.",
+      );
+    } else if (ctx.resolveEdgeObject && !ctx.resolveEdgeObject(obj.model)) {
+      add(
+        "error",
+        "edge-object-model",
+        `${path}.model`,
+        `${obj.model} is not an edge object in the game, this mod, or its dependencies.`,
+      );
+    }
+    add("warning", "unverified-field", path, UNVERIFIED_FIELDS.edgeObjects);
+  });
+  return issues;
+}
+
 export function lintConstruction(
   doc: ConstructionDoc,
   ctx: LintContext,
@@ -232,6 +418,7 @@ export function lintConstruction(
       }
     });
   });
+  issues.push(...lintPaths(doc, ctx));
   if (doc.snapPoint !== undefined) {
     issues.push({
       severity: "warning",

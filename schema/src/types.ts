@@ -134,6 +134,89 @@ export interface GroundFaceDoc {
   alignmentDir?: [number, number];
 }
 
+/** One node of a lane list. `tangent` overrides the automatic tangent. */
+export interface LaneNodeDoc {
+  pos: Vec3;
+  /** Direction only: export rescales it to the edge length. */
+  tangent?: Vec3;
+  width: number;
+}
+
+/**
+ * A chain of lane nodes. Export writes two entries per edge, so a chain of n
+ * nodes becomes n - 1 edges.
+ */
+export interface LaneListDoc {
+  /** Editor-only name. Never exported. */
+  label?: string;
+  nodes: LaneNodeDoc[];
+  transf?: Mat4;
+  transportModes: TransportMode[];
+  speedLimit: number;
+  linkable: boolean;
+  forwardOnly: boolean;
+  needsReservation: boolean;
+  pedestrianWalkPenalty: number;
+}
+
+export type TrafficLight = "YES" | "NO" | "AUTO";
+
+export interface EdgeNodeDoc {
+  pos: Vec3;
+  /** Direction only: export rescales it to the edge length. */
+  tangent?: Vec3;
+  /** Listed in `snapNodes`. */
+  snap?: boolean;
+  /** Listed in `freeNodes`. */
+  free?: boolean;
+  trafficLight?: TrafficLight;
+}
+
+/**
+ * Street or track edges over shared nodes. `edges` holds pairs of node
+ * indices. Export writes two entries per edge, and a node index elsewhere
+ * (runways, `tag2nodes`) maps to the first entry that holds the node.
+ */
+export interface EdgeListDoc {
+  /** Editor-only stable id that runways and edge objects refer to. Never exported. */
+  id: string;
+  /** Editor-only name. Never exported. */
+  label?: string;
+  type: EdgeListType;
+  /** Street template or track type id, written to `params.type`. */
+  typeName: string;
+  alignTerrain: boolean;
+  nodes: EdgeNodeDoc[];
+  edges: [number, number][];
+  tag2nodes?: Record<string, number[]>;
+}
+
+export type RunwayKind = "LANDING" | "TAKEOFF";
+
+/** A runway on the nodes and edges of one edge list. */
+export interface RunwayDoc {
+  /** Editor-only name. Never exported. */
+  label?: string;
+  kind: RunwayKind;
+  /** Id of the edge list that `node` and `edges` index into. */
+  edgeList: string;
+  /** Node index in that list. Unset until picked. */
+  node?: number;
+  /** Edge indices in that list. */
+  edges: number[];
+}
+
+/** A sign or signal on one edge. Export computes the construction-wide edge index. */
+export interface EdgeObjectDoc {
+  /** Edge object `.con` id, for example `/assets/stations/air/signs/sign_a.con`. */
+  model: string;
+  edgeList: string;
+  edge: number;
+  /** Distance from the start node, in meters. */
+  param: number;
+  left: boolean;
+}
+
 export interface SubconstructionDoc {
   /** Editor-only name. Never exported. */
   label?: string;
@@ -143,6 +226,8 @@ export interface SubconstructionDoc {
   hidden?: boolean;
   models: ModelPlacement[];
   groundFaces?: GroundFaceDoc[];
+  laneLists?: LaneListDoc[];
+  runways?: RunwayDoc[];
 }
 
 export interface ConstructionDescription {
@@ -182,6 +267,9 @@ export interface ConstructionDoc {
   costs: ConstructionCosts;
   snapPoint?: SnapPoint;
   metadata: Record<string, unknown>;
+  /** Top level, outside any layer. */
+  edgeLists?: EdgeListDoc[];
+  edgeObjects?: EdgeObjectDoc[];
   subconstructions: SubconstructionDoc[];
 }
 

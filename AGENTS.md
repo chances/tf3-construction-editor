@@ -5,7 +5,7 @@ constructions of one mod and exports them into the mod folder as `.con.lua` and
 `.script.tl` files. The plan is `.agents/plans/construction-editor-v1.md`. Read
 it before changing scope.
 
-The manual test plan for phases 1 to 3 is `tests/plans/v1-manual-tests.html`,
+The manual test plan for phases 1 to 4 is `tests/plans/v1-manual-tests.html`,
 published as the V1 Manual Tests artifact
 (<https://claude.ai/artifact/REDHFz2QJKd28NsWUQjDjm>). Republish to that URL to
 update it.
@@ -37,6 +37,15 @@ Run from the repo root.
 - Scripts that the game loads are Teal (`.tl`), never plain Lua.
 - Members import each other by `name` (`@cedit/schema`), with no `imports`
   entry.
+- App modules never import in a cycle. A component that needs another
+  component's exports (a style array) does not get imported by it: the shared
+  export lives in its own module, or the side-effect import moves to a common
+  parent such as `ce-inspector.ts`. `deno check` and the tests do not see a
+  cycle
+  (`ReferenceError: can't access lexical declaration ... before
+  initialization`
+  appears only in the browser), so load the app after adding an import between
+  components.
 - Path handling always uses `@std/path/posix` (`basename`, `extname`, `dirname`,
   `join`), in every member including `./app`, and never a hand-written slice,
   split, or regex. Model and image names show without folder and extension

@@ -138,7 +138,7 @@ Decisions:
 | Lint         | Self-intersecting polygon is a warning. Empty texture key is an error.                                                                                                                 |
 | Manual tests | A Phase 3 section is added to the V1 Manual Tests artifact.                                                                                                                            |
 
-### Phase 4: Paths (Lane Lists, Runways, Edge Lists, Edge Objects)
+### Phase 4: Paths (Lane Lists, Runways, Edge Lists, Edge Objects) (Done)
 
 - Placement: `laneLists` and `runways` belong to a subconstruction (a layer).
   `edgeLists` and `edgeObjects` sit at the construction top level, outside any
@@ -174,6 +174,22 @@ Decisions:
 - Scene tree: each layer holds Lanes and Runways. A top-level Edges section
   holds edge lists and edge objects. The canvas draws edges as street or track
   strokes with node dots, and a runway as a highlight on its edges.
+
+Decisions:
+
+| Area           | Decision                                                                                                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edge list type | The picked street or track type goes to `params.type`, as the shipped airfield does (`/infrastructure/street/airport/airport_runway_small.street_template`). The tealdef has no `params`. `edgeTypeName` is for bridge and tunnel types and is not written. |
+| Type index     | The server indexes `.street_template.lua`, `.street.lua`, `.track_template.lua`, and `.track.lua` as types, and `.con.lua` files that declare `edgeObject` as edge objects. Ids drop `.lua`.                                                                |
+| Entries        | Lane lists and edge lists write two entries per edge. The wiki says a tangent's length equals the edge length, so export scales a node's own tangent direction to the edge length. With no override the tangent is the straight edge vector.                |
+| Node numbers   | A node maps to the first entry that holds it. Runway `node` and `edges`, and edge object `edge`, count across all edge lists in order. A runway writes `-1` as its first value, which the wiki defines as "n-th from the edge lists".                       |
+| Node roles     | Snap Node and Free Node are two checkboxes per node (`snapNodes`, `freeNodes`). Traffic light writes `trafficLightNodePreference` pairs, the wiki form. `tag2nodes` follows the tealdef casing.                                                             |
+| Drawing        | Lane List and Edge List tools click out nodes. Enter, a double-click, or a click on the last node finishes. With an edge list selected, the Edge List tool extends it and a click on one of its nodes joins it. Otherwise a new street list is made.        |
+| Tangent        | A selected node shows a tangent handle. Dragging stores a direction override. Reset Tangent clears it.                                                                                                                                                      |
+| Edge objects   | The Assets pane lists them after the models with an Edge Object chip, using the search text. A card goes on the picked edge, or replaces the model of the picked edge object.                                                                               |
+| Removal        | A node, edge, or edge list that a runway or edge object uses confirms and removes them. Other removals skip the dialog. One undo restores everything.                                                                                                       |
+| Z band         | A path shows when any of its points is inside the band. A hidden layer hides its lane lists and runways. Edge lists have no layer.                                                                                                                          |
+| Manual tests   | A Phase 4 section is added to the V1 Manual Tests artifact.                                                                                                                                                                                                 |
 
 ### Phase 5: Colliders and Terrain Alignment
 

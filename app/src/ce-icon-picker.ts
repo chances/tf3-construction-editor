@@ -11,6 +11,20 @@ import {
 } from "./popover-placement.ts";
 import { sharedStyles } from "./styles.ts";
 
+export type PickerKind = "image" | "gtex" | "street" | "track" | "edge-object";
+
+/** What each kind of list holds, in the words of its messages. */
+const NOUNS: Record<PickerKind, string> = {
+  image: "images",
+  gtex: "ground textures",
+  street: "street types",
+  track: "track types",
+  "edge-object": "edge objects",
+};
+
+/** The kinds whose rows show a thumbnail. */
+const PREVIEWED: ReadonlySet<PickerKind> = new Set(["image", "gtex"]);
+
 const ROW_LIMIT = 50;
 /** The tallest the list gets: 18rem at the default 16px root size. */
 const LIST_HEIGHT = 288;
@@ -167,8 +181,11 @@ export class CeIconPicker extends LitElement {
   declare label: string;
   declare value: string;
   declare dir: string;
-  /** `image` lists the game's images. `gtex` lists its ground textures. */
-  declare kind: "image" | "gtex";
+  /**
+   * `image` lists the game's images. `gtex` lists its ground textures.
+   * `street`, `track`, and `edge-object` list those types and have no preview.
+   */
+  declare kind: PickerKind;
   /** Focuses the field when it first renders, which opens the list. */
   declare autoOpen: boolean;
   declare open: boolean;
@@ -213,15 +230,32 @@ export class CeIconPicker extends LitElement {
 
   /** What the list holds, in the words of its messages. */
   get #noun(): string {
-    return this.kind === "gtex" ? "ground textures" : "images";
+    return NOUNS[this.kind];
+  }
+
+  /** The list of the picker's kind, as `{ total, entries }`. */
+  async #fetchList(
+    query: string,
+    limit: number,
+  ): Promise<{ total: number; entries: { id: string }[]; folders?: string[] }> {
+    switch (this.kind) {
+      case "gtex":
+        return await api.gtex(this.dir, query, limit);
+      case "street":
+        return await api.edgeTypes(this.dir, "STREET", query, limit);
+      case "track":
+        return await api.edgeTypes(this.dir, "TRACK", query, limit);
+      case "edge-object":
+        return await api.edgeObjects(this.dir, query, limit);
+      default:
+        return await api.images(this.dir, query, limit);
+    }
   }
 
   async #search(query: string) {
     const ticket = ++this.#sequence;
     try {
-      const found = this.kind === "gtex"
-        ? { ...(await api.gtex(this.dir, query, ROW_LIMIT)), folders: [] }
-        : await api.images(this.dir, query, ROW_LIMIT);
+      const found = await this.#fetchList(query, ROW_LIMIT);
       if (ticket !== this.#sequence) return;
       this.results = found.entries;
       this.folders = found.folders ?? [];
@@ -247,7 +281,7 @@ export class CeIconPicker extends LitElement {
   }
 
   #show(id: string, size: number) {
-    if (id === "" || this.broken.has(id)) {
+    if (id === "" || this.broken.has(id) || !PREVIEWED.has(this.kind)) {
       return html`<span class="tile" aria-hidden="true">${
         imageIcon(
           size > 30 ? 20 : 14,
@@ -358,15 +392,16 @@ export class CeIconPicker extends LitElement {
       return;
     }
     try {
-      if (this.kind === "gtex") {
-        const found = await api.gtex(this.dir, id, 5);
+      if (this.kind !== "image") {
+        const found = await this.#fetchList(id, 5);
         if (ticket !== this.#checked) return;
         const exact = found.entries.some((e) =>
           e.id.toLowerCase() === id.toLowerCase()
         );
+        // An index with no entry of this kind means the game is not set up.
         this.problem = found.total === 0 || exact
           ? ""
-          : `${id} is not a ground texture in the game, this mod, or its dependencies. Pick one from the list.`;
+          : `${id} is not in the ${this.#noun} of the game, this mod, or its dependencies. Pick one from the list.`;
         return;
       }
       const found = await api.images(this.dir, id, 1);
@@ -533,9 +568,9 @@ export class CeIconPicker extends LitElement {
         this.folders.length + i,
         row.id,
         this.#show(row.id, 40),
-        this.kind === "gtex"
-          ? basename(row.id, extname(row.id))
-          : basename(row.id),
+        this.kind === "image"
+          ? basename(row.id)
+          : basename(row.id, extname(row.id)),
         () => this.#pick(row.id),
         row.id === this.value,
       )

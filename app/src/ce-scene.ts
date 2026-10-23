@@ -2,6 +2,7 @@ import { css, html, LitElement } from "lit";
 import "./ce-toggle-button.ts";
 import { trashIcon } from "./icons.ts";
 import { observer } from "./observer.ts";
+import { basename, extname } from "@std/path/posix";
 import { modelNames } from "@cedit/schema";
 import { store } from "./state.ts";
 import { sharedStyles } from "./styles.ts";
@@ -102,6 +103,10 @@ export class CeScene extends observer(LitElement) {
       .layer > .row button.item {
         font-weight: 600;
       }
+      .section {
+        font-weight: 600;
+        padding-inline: 0.5rem;
+      }
       .layer > .row button.item {
         align-items: center;
         display: flex;
@@ -127,10 +132,44 @@ export class CeScene extends observer(LitElement) {
     `,
   ];
 
+  /** One item row: its name and a trash button. */
+  #row(
+    name: string,
+    current: boolean,
+    select: () => void,
+    remove: { title: string; label: string; run: () => void },
+    title?: string,
+  ) {
+    return html`
+      <li>
+        <div class="row">
+          <button
+            class="item"
+            title=${title ?? name}
+            aria-current=${String(current)}
+            @click=${select}
+          >
+            ${name}
+          </button>
+          <button
+            type="button"
+            class="subtle delete"
+            title=${remove.title}
+            aria-label=${remove.label}
+            @click=${remove.run}
+          >
+            ${trashIcon(12)}
+          </button>
+        </div>
+      </li>
+    `;
+  }
+
   override render() {
     const doc = store.doc;
     if (!doc) return null;
     const inspect = store.inspectTarget;
+    const ps = store.pathSelection;
     return html`
       <ul class="tree">
         <li class="root">
@@ -256,10 +295,99 @@ export class CeScene extends observer(LitElement) {
                           `;
                         },
                       )}
+                      ${(sub.laneLists ?? []).map((lane, li) =>
+                        this.#row(
+                          lane.label ?? `Lane ${li + 1}`,
+                          ps?.kind === "lane" && ps.sub === si &&
+                            ps.lane === li,
+                          () =>
+                            store.selectPath({
+                              kind: "lane",
+                              sub: si,
+                              lane: li,
+                              node: null,
+                            }),
+                          {
+                            title: "Remove Lane List",
+                            label: `Remove the lane list ${
+                              lane.label ?? `Lane ${li + 1}`
+                            } from the layer`,
+                            run: () => store.removeLane(si, li),
+                          },
+                        )
+                      )}
+                      ${(sub.runways ?? []).map((runway, ri) =>
+                        this.#row(
+                          runway.label ??
+                            `${
+                              runway.kind === "LANDING" ? "Landing" : "Takeoff"
+                            } Runway ${ri + 1}`,
+                          ps?.kind === "runway" && ps.sub === si &&
+                            ps.runway === ri,
+                          () =>
+                            store.selectPath({
+                              kind: "runway",
+                              sub: si,
+                              runway: ri,
+                            }),
+                          {
+                            title: "Remove Runway",
+                            label: `Remove runway ${ri + 1} from the layer`,
+                            run: () => store.removeRunway(si, ri),
+                          },
+                        )
+                      )}
                     </ul>
                   </li>
                 `,
             )}
+            ${(doc.edgeLists?.length ?? 0) + (doc.edgeObjects?.length ?? 0) > 0
+              ? html`
+                <li class="layer">
+                  <div class="row">
+                    <span class="section">Edges</span>
+                  </div>
+                  <ul>
+                    ${(doc.edgeLists ?? []).map((list, li) =>
+                      this.#row(
+                        list.label ?? `Edge List ${li + 1}`,
+                        ps?.kind === "edgeList" && ps.list === li,
+                        () =>
+                          store.selectPath({
+                            kind: "edgeList",
+                            list: li,
+                            node: null,
+                            edge: null,
+                          }),
+                        {
+                          title: "Remove Edge List",
+                          label: `Remove the edge list ${
+                            list.label ?? `Edge List ${li + 1}`
+                          } after you confirm if anything uses it`,
+                          run: () => store.requestRemoveEdgeList(li),
+                        },
+                      )
+                    )}
+                    ${(doc.edgeObjects ?? []).map((object, oi) =>
+                      this.#row(
+                        object.model === ""
+                          ? `Edge Object ${oi + 1}`
+                          : basename(object.model, extname(object.model)),
+                        ps?.kind === "edgeObject" && ps.index === oi,
+                        () =>
+                          store.selectPath({ kind: "edgeObject", index: oi }),
+                        {
+                          title: "Remove Edge Object",
+                          label: `Remove edge object ${oi + 1}`,
+                          run: () => store.removeEdgeObject(oi),
+                        },
+                        object.model,
+                      )
+                    )}
+                  </ul>
+                </li>
+              `
+              : null}
           </ul>
         </li>
       </ul>

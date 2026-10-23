@@ -52,7 +52,10 @@ export class CeApp extends observer(LitElement) {
       event.preventDefault();
       store.redo();
     } else if (key === "escape") {
-      if (store.tool !== "select") {
+      if (store.runwayPick) {
+        event.preventDefault();
+        store.beginRunwayPick(null);
+      } else if (store.tool !== "select") {
         event.preventDefault();
         store.setTool("select");
       }
@@ -60,10 +63,19 @@ export class CeApp extends observer(LitElement) {
       if (store.tool === "face" && store.faceDraft.length > 0) {
         event.preventDefault();
         store.closeDraft();
+      } else if (
+        (store.tool === "lane" || store.tool === "edges") &&
+        store.pathDraft.length > 0
+      ) {
+        event.preventDefault();
+        store.finishPathDraft();
       }
     } else if (key === "delete" || key === "backspace") {
       const face = store.faceSelection;
-      if (store.selection) {
+      if (store.pathSelection) {
+        event.preventDefault();
+        store.removeSelectedPath();
+      } else if (store.selection) {
         event.preventDefault();
         store.removeSelected();
       } else if (face?.vertex != null) {

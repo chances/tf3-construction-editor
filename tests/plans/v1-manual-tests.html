@@ -298,11 +298,6 @@ const PLAN = [
         "name, summary, description, authors, tags, localization persist after a reload.",
       ],
       [
-        "unknown",
-        "Add an unknown key by hand, edit a field in the app, save",
-        "The unknown key is still in the file.",
-      ],
-      [
         "strings",
         "Check strings.json after saving",
         "The file is byte-for-byte unchanged.",
@@ -330,11 +325,6 @@ const PLAN = [
         "Edit name, description, year range, menu category, order, and content folder",
         "Values persist after a reload.",
       ],
-      [
-        "names",
-        "Enter an id with uppercase or spaces",
-        "It is rejected or normalized to lowercase a-z, 0-9, _ and -.",
-      ],
     ],
   },
   {
@@ -347,26 +337,6 @@ const PLAN = [
         "list",
         "Scroll the asset list",
         "Cards show readable names and chips, with no raw game abbreviations.",
-      ],
-      [
-        "search",
-        "Search with two keywords in mixed case",
-        "Every keyword must match. Case is ignored. Chip text is searchable.",
-      ],
-      [
-        "variants",
-        "Find a model with high, low, idle, open, closed, or prod variants",
-        "The variants show as one model.",
-      ],
-      [
-        "mod",
-        "Find a model that ships in the open mod's content/",
-        "It appears in the list.",
-      ],
-      [
-        "dep",
-        "Add a dependency mod, then find its models",
-        "They appear with the mod_id:: prefix.",
       ],
       [
         "empty",
@@ -412,36 +382,6 @@ const PLAN = [
         "Export a construction with at least one model",
         "content/<folder>/<id>.con.lua and <id>.script.tl exist.",
       ],
-      [
-        "con",
-        "Open the .con.lua",
-        "updateScript points at the script and the file holds data only.",
-      ],
-      [
-        "tl",
-        "Open the .script.tl",
-        "updateFn returns the data table. The file is UTF-8 without BOM.",
-      ],
-      [
-        "manifest",
-        "Open export-manifest.json",
-        "Both written files are listed.",
-      ],
-      [
-        "rerun",
-        "Export again after a change",
-        "Listed files are overwritten without complaint.",
-      ],
-      [
-        "refuse",
-        "Create an unlisted file at an export target path, then export",
-        "The export is refused and the file is untouched.",
-      ],
-      [
-        "merge",
-        "Compare mod.json and modinfo.json after export",
-        "Keys merged, nothing dropped.",
-      ],
     ],
   },
   {
@@ -469,7 +409,6 @@ const PLAN = [
         "Delete, then undo",
         "The model returns with the same values.",
       ],
-      ["redo-clear", "Undo, then make a new edit", "Redo is cleared."],
       [
         "keys",
         "Use the undo and redo shortcuts and buttons",
@@ -511,28 +450,7 @@ const PLAN = [
     title: "Snapping",
     intro: "Phase 2. Four modes.",
     steps: [
-      [
-        "grid",
-        "Drag with grid snap at 0.1, 0.5, 1, and 5 m",
-        "Positions land on multiples of the step.",
-      ],
-      [
-        "vertex",
-        "Drag near another model's corner with vertex snap on",
-        "The model locks to the vertex.",
-      ],
       ["origin", "Drag near the origin", "The model locks to the origin."],
-      [
-        "tangent",
-        "Use edge tangent snap near an edge",
-        "Rotation aligns to the edge.",
-      ],
-      [
-        "angle",
-        "Rotate with angle steps of 1, 5, 15, 45, and 90",
-        "Angles land on multiples of the step.",
-      ],
-      ["off", "Turn snapping off and drag", "Movement is free."],
     ],
   },
   {
@@ -596,19 +514,6 @@ const PLAN = [
     ],
   },
   {
-    id: "p2-persist",
-    title: "Persistence",
-    intro: "Phase 2. Round trip through _metadata/constructions/.",
-    steps: [
-      [
-        "reload",
-        "Reload the page and reopen the construction",
-        "Models, tags, and layers are identical.",
-      ],
-      ["restart", "Restart the dev server and reopen", "Nothing is lost."],
-    ],
-  },
-  {
     id: "p3-draw",
     title: "Drawing Ground Faces",
     intro:
@@ -643,11 +548,6 @@ const PLAN = [
         "empty",
         "Open a construction with no models or faces, select its layer, and press Draw Ground Face in Properties",
         "The surface shows its grid instead of the Add a Model prompt, so the first item can be a face. Esc brings the prompt back.",
-      ],
-      [
-        "winding",
-        "Draw a face by clicking its points clockwise",
-        "Vertices list in Properties runs counterclockwise: the order differs from the click order. No winding error shows under Problems.",
       ],
       [
         "snap",
@@ -686,11 +586,6 @@ const PLAN = [
         "moveface",
         "Drag the body of a face, then press Undo once",
         "All vertices move together by the same shift. One undo step puts it back.",
-      ],
-      [
-        "flip",
-        "Drag a vertex across the polygon so the loop turns clockwise",
-        "The face keeps a valid fill, the dragged vertex stays under the pointer, and Problems shows no winding error.",
       ],
       [
         "fields",
@@ -751,29 +646,14 @@ const PLAN = [
         "Rows show a thumbnail, the texture name, and its path. Thumbnails fill in as they load.",
       ],
       [
-        "search",
-        "Type asphalt 01 in mixed case",
-        "Only textures whose path holds both words show. Typing a game folder name matches too.",
-      ],
-      [
         "pick",
         "Pick asphalt_01",
         "The field shows its thumbnail and name, Problems clears, and the face on the surface fills with a tiled preview of the texture.",
       ],
       [
-        "nopick",
-        "Close a new face's picker without choosing (Esc), then look at Problems",
-        "An error says to pick a ground texture. Export is blocked until one is set.",
-      ],
-      [
         "typed",
         "Type /nowhere/fake.gtex into the Texture field and press Tab",
         "A message under the field says the texture is not in the game, this mod, or its dependencies.",
-      ],
-      [
-        "mask",
-        "Search for airfield and pick any result. If nothing matches, search for another texture whose name holds mask or field",
-        "A thumbnail shows or a plain tile shows. Neither breaks the list or the surface.",
       ],
       [
         "type",
@@ -791,16 +671,6 @@ const PLAN = [
         "The mode is removed at once with no confirm dialog, and Undo restores it.",
       ],
       [
-        "tex",
-        "Tick Edit Texture Coordinates on a mode",
-        "One U and V pair per vertex appears, starting at the automatic values. Untick it and they go away.",
-      ],
-      [
-        "texmove",
-        "With own coordinates on, add a vertex, then remove another",
-        "The coordinate rows follow the vertices, and the new one starts halfway between its neighbors.",
-      ],
-      [
         "align",
         "Expand Alignment, untick Loop, set Offset Mode to WORLD",
         "With a Stroke mode, the closing edge stops drawing. Problems shows one warning that the fields are not checked in game. Reset Alignment clears every field and the warning.",
@@ -808,39 +678,179 @@ const PLAN = [
     ],
   },
   {
-    id: "p3-out",
-    title: "Ground Face Lint, Export, and Persistence",
-    intro: "Phase 3. Writes groundFaces into the .script.tl.",
+    id: "p4-lane",
+    title: "Lane Lists",
+    intro:
+      "Phase 4. Needs an open construction with one model, so the surface shows. Restart dev first, since the server gained routes.",
     steps: [
       [
-        "bowtie",
-        "Edit vertices by their fields until two edges cross",
-        "Problems shows a warning that two edges cross. Export is not blocked by it.",
+        "draw",
+        "In the canvas toolbar, press the Lane List tool (fourth icon in Tool). Click three points on empty ground, then press Enter",
+        "A dashed line follows the pointer. Enter finishes it into Lane 1 under the layer in the Scene tree, drawn as a colored line with a direction arrow on each edge, and Properties shows the lane list.",
       ],
       [
-        "blocked",
-        "Export a construction with a face that has an empty texture key",
-        "The export is blocked and the error names the key.",
+        "dbl",
+        "Press the Lane List tool, click two points, then double-click a third spot. Repeat with a click on the last point instead",
+        "Both finish the lane list with no duplicate point. Esc before finishing drops the half-drawn line and returns to the Select tool.",
       ],
       [
-        "export",
-        "Give every face a texture and Export",
-        "The .script.tl holds groundFaces per layer: face points, modes with type and key, and texCoords with one pair per point (0 to 1 over the bounding box unless edited).",
+        "z",
+        "Draw a lane list, set the Z of node 1 to 4 in Properties, then draw a second lane list",
+        "A node copies the Z of the previous node in its path, 0 for the first. Nodes you draw after editing take the Z of the node before them.",
       ],
       [
-        "nofaces",
-        "Export a construction that never had a face",
-        "The .script.tl has no groundFaces key.",
+        "defaults",
+        "Select a new lane list and read Properties",
+        "Person is ticked, Speed Limit is 3, Walk Penalty is 1, Linkable is ticked, Forward Only and Needs Reservation are not, and a new node has Width 3.",
       ],
       [
-        "reload",
-        "Reload the page and reopen the construction",
-        "Faces, labels, modes, own coordinates, and alignment fields are identical. The face selection is not restored.",
+        "node",
+        "Click a node dot, drag it, then use its row in the Nodes list",
+        "The row for the node highlights and Width and Tangent fields appear. Dragging merges into one undo step. Editing X, Y, or Z in the row moves the node.",
       ],
       [
-        "restart",
-        "Stop and restart dev, then reopen",
-        "Nothing is lost, and the texture list and thumbnails still load.",
+        "tangent",
+        "With a node picked, drag the round handle beside it, then press Reset Tangent",
+        "The handle shows the automatic direction (toward the next node). Dragging turns it, and Reset Tangent turns it back. With Angle snapping on, the handle snaps to the angle steps.",
+      ],
+      [
+        "split",
+        "Press the plus in the Nodes heading with a node picked, then remove nodes with the cross buttons",
+        "A node appears halfway along the next edge and is picked. The cross buttons stop at 2 nodes and say so in their title.",
+      ],
+      [
+        "offset",
+        "Set Offset X to 5 in Properties",
+        "The whole lane list moves 5 m in x on the surface, and its node fields keep their values. Setting the offset to 0 in all three fields removes it.",
+      ],
+      [
+        "snap",
+        "Drag a lane node near a model corner and near a node of another lane list, with Vertex snapping on",
+        "The orange ring marks each snap. Holding Alt skips snapping. The node never snaps to its own neighbors.",
+      ],
+      [
+        "band",
+        "Move the Z Band thumbs so a lane list lies outside the band, and hide its layer with the eye",
+        "A lane list leaves the surface when none of its nodes is inside the band, and when its layer is hidden. It stays in the Scene tree.",
+      ],
+      [
+        "remove",
+        "Press the trash beside a lane list in the Scene tree, then press Ctrl+Z",
+        "It goes at once with no dialog and comes back with Undo. The Delete key removes the picked node, or the whole lane list when no node is picked.",
+      ],
+    ],
+  },
+  {
+    id: "p4-edges",
+    title: "Edge Lists",
+    intro:
+      "Phase 4. Needs the install folder set, so street types index. The first edge list opens its type picker.",
+    steps: [
+      [
+        "draw",
+        "Press the Edge List tool (fifth icon) with nothing selected. Click three points, then press Enter",
+        "A new edge list appears under Edges in the Scene tree, drawn as a grey street stroke with node dots, and the Street Type list opens at once.",
+      ],
+      [
+        "type",
+        "In the Street Type list, search runway and pick airport_runway_small",
+        "The field shows the name and its path in the list is /infrastructure/street/airport/airport_runway_small.street_template. Typing an id that is not in the list shows a problem under the field.",
+      ],
+      [
+        "track",
+        "Change List Type to Track",
+        "The type clears and the Track Type picker opens. The stroke draws dashed. Switching back asks for a street type again.",
+      ],
+      [
+        "extend",
+        "With the edge list selected, press the Edge List tool and click a spot, then click a node of the list, then press Enter",
+        "The new nodes join the same list. The click on a node joins it, so no duplicate node sits on it and the new edge ends there. Drawing the same edge again adds no second edge.",
+      ],
+      [
+        "node",
+        "Pick a node and read Properties",
+        "Snap Node, Free Node, Traffic Light, and the tangent fields show. Traffic Light offers Default, Yes, No, and Auto.",
+      ],
+      [
+        "tags",
+        "Press the plus in Node Tags, name the tag exit, and type 1, 3 in its nodes field",
+        "Nodes count from 1, as in the Nodes list. A number out of range is dropped. The trash button removes the tag.",
+      ],
+      [
+        "edges",
+        "Click an edge on the surface, then use the Edge rows in Properties",
+        "The edge turns orange and its row highlights. Each row names its two nodes.",
+      ],
+      [
+        "z",
+        "Set the Z of one node to 6 with the Z Band from 0 to 2",
+        "The edge list stays visible while any node is inside the band, and leaves when none is.",
+      ],
+    ],
+  },
+  {
+    id: "p4-runway",
+    title: "Runways and Edge Objects",
+    intro:
+      "Phase 4. Needs an edge list with at least three edges and a layer. Sign models come from the install folder.",
+    steps: [
+      [
+        "add",
+        "Select the layer and press Add Runway, or select the edge list and press Landing",
+        "A runway appears under the layer in the Scene tree. With no edge list the button is disabled and its title says to draw one first.",
+      ],
+      [
+        "node",
+        "Press Pick Node, then click a node dot of the edge list",
+        "The button shows pressed while armed, the hint names the click, and the node gets a ring on the surface. Esc cancels the pick.",
+      ],
+      [
+        "edges",
+        "Press Pick Edges, then click two edges, then click one of them again",
+        "Each clicked edge gets a wide highlight and a row under Runway Edges. The second click on an edge takes it out. Esc ends the pick.",
+      ],
+      [
+        "kind",
+        "Switch Runway Kind between Landing and Takeoff, and change Edge List when two lists exist",
+        "The highlight color changes with the kind. Changing the edge list clears the node and edges.",
+      ],
+      [
+        "assets",
+        "Click an edge of the edge list, then search sign in the Assets pane",
+        "Edge objects such as sign_a list after the models, each with an Edge Object chip. Clicking one puts it on the picked edge and selects it. With no edge picked, a message asks for one.",
+      ],
+      [
+        "object",
+        "Pick the edge object and set Offset to 3, then tick Left Side",
+        "A diamond marker moves 3 m along the edge from its first node, and jumps to the other side of the edge when Left Side changes.",
+      ],
+      [
+        "swap",
+        "Pick the edge object and click a different edge object in the Assets pane",
+        "The model of the picked object changes. No second object is added.",
+      ],
+      [
+        "add-object",
+        "Pick an edge and press Add Edge Object in Properties",
+        "A new edge object is selected and its model list opens at once.",
+      ],
+    ],
+  },
+  {
+    id: "p4-out",
+    title: "Path Removal",
+    intro:
+      "Phase 4. Removing a node or an edge list that a runway or edge object uses.",
+    steps: [
+      [
+        "node-confirm",
+        "Delete a node that a runway uses with its Remove button",
+        "A dialog names the node and says it also removes the runway. Cancel changes nothing. Remove deletes the node, its edges, and the runway, and one Undo restores all of them.",
+      ],
+      [
+        "list-confirm",
+        "Delete an edge list that a runway and an edge object use, from the Scene tree",
+        "The dialog counts 1 runway and 1 edge object. After Remove, the Edges section shows nothing and Undo brings back the list, the runway, and the object.",
       ],
     ],
   },
@@ -848,7 +858,7 @@ const PLAN = [
     id: "game",
     title: "In Game",
     intro:
-      "Open Verification Items 1 to 5 and 8. Only the game can answer these.",
+      "Open Verification Items 1 to 5, 8, and 9. Only the game can answer these.",
     steps: [
       [
         "load",

@@ -3,12 +3,22 @@ import { basename } from "@std/path/posix";
 import {
   decomposeTransf,
   edgeCrossesPolyline,
+  findEdgeList,
   type GroundFaceDoc,
   type Mat4,
+  pointOnEdge,
   transformPoint,
+  type Vec3,
 } from "@cedit/schema";
 import { gtexImageUrl, type MdlSummary } from "./api.ts";
 import { observer } from "./observer.ts";
+import {
+  arrowPoints,
+  edgeTangentDir,
+  laneTangentDir,
+  leftNormal,
+  modeGroup,
+} from "./path-draw.ts";
 import {
   type Segment,
   snapAngle,
@@ -32,11 +42,26 @@ const HANDLE_PX = 6;
 /** Side of one texture preview tile on a ground face, in meters. */
 const TILE_M = 4;
 
+/** Side of a tangent handle's reach from its node, in pixels. */
+const TANGENT_HANDLE_PX = 36;
+/** Distance of an edge object marker from its edge, in meters. */
+const OBJECT_OFFSET_M = 1.5;
+
 /** Points and edges that a dragged or drawn ground face point can snap to. */
 interface SnapSet {
   targets: Vec2[];
   segments: Segment[];
 }
+
+/** A lane list node or an edge list node. */
+type PathNodeRef =
+  | { type: "lane"; sub: number; lane: number; node: number }
+  | { type: "edges"; list: number; node: number };
+
+/** The shift a lane list's `transf` gives its nodes in x and y. */
+const laneOffset = (
+  transf?: Mat4,
+): Vec2 => [transf?.[12] ?? 0, transf?.[13] ?? 0];
 
 const NO_SNAP: SnapSettings = {
   grid: null,
@@ -94,7 +119,16 @@ type Drag =
     start: Vec2[];
     set: SnapSet;
   }
-  | { kind: "rect"; anchor: Vec2; set: SnapSet };
+  | { kind: "rect"; anchor: Vec2; set: SnapSet }
+  | {
+    kind: "pnode";
+    ref: PathNodeRef;
+    pointer: Vec2;
+    start: Vec2;
+    offset: Vec2;
+    set: SnapSet;
+  }
+  | { kind: "tangent"; origin: Vec2 };
 
 function localBox(summary: MdlSummary | undefined): Vec2[] {
   const [x0, y0, x1, y1] = summary
@@ -198,6 +232,127 @@ export class CeCanvas extends observer(LitElement) {
       .draft-dot {
         fill: var(--ce-accent);
         pointer-events: none;
+      }
+      :host {
+        --lane-person: var(--ce-accent);
+        --lane-road: var(--ce-warning);
+        --lane-rail: var(--ce-model);
+        --lane-air: #a56bd6;
+        --lane-water: #2fa6a6;
+      }
+      /* A wide invisible stroke, so a thin path is easy to pick. */
+      .path-hit {
+        cursor: pointer;
+        fill: none;
+        pointer-events: stroke;
+        stroke: transparent;
+        stroke-width: 14;
+        vector-effect: non-scaling-stroke;
+      }
+      svg.drawing .path-hit {
+        cursor: crosshair;
+      }
+      .lane,
+      .edge,
+      .runway-hl {
+        fill: none;
+        pointer-events: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+      }
+      .lane {
+        stroke: var(--lane-person);
+        stroke-width: 3;
+      }
+      .lane.road {
+        stroke: var(--lane-road);
+      }
+      .lane.rail {
+        stroke: var(--lane-rail);
+      }
+      .lane.air {
+        stroke: var(--lane-air);
+      }
+      .lane.water {
+        stroke: var(--lane-water);
+      }
+      .selected .lane {
+        stroke-width: 5;
+      }
+      .lane-arrow {
+        fill: var(--lane-person);
+        pointer-events: none;
+      }
+      .lane-arrow.road {
+        fill: var(--lane-road);
+      }
+      .lane-arrow.rail {
+        fill: var(--lane-rail);
+      }
+      .lane-arrow.air {
+        fill: var(--lane-air);
+      }
+      .lane-arrow.water {
+        fill: var(--lane-water);
+      }
+      .edge.street {
+        stroke: var(--ce-muted);
+        stroke-width: 5;
+      }
+      .edge.track {
+        stroke: var(--ce-model);
+        stroke-dasharray: 8 4;
+        stroke-width: 3;
+      }
+      .edge.listed {
+        stroke: var(--ce-accent);
+      }
+      .edge.picked {
+        stroke: var(--ce-warning);
+        stroke-width: 7;
+      }
+      .runway-hl {
+        opacity: 0.4;
+        stroke-width: 14;
+      }
+      .runway-hl.landing {
+        stroke: var(--ce-accent);
+      }
+      .runway-hl.takeoff {
+        stroke: var(--ce-warning);
+      }
+      .runway-hl.selected {
+        opacity: 0.7;
+      }
+      .runway-node {
+        fill: none;
+        pointer-events: none;
+        stroke: var(--ce-accent);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .node-dot {
+        fill: var(--ce-surface);
+        pointer-events: none;
+        stroke: var(--ce-muted);
+        stroke-width: 1.5;
+        vector-effect: non-scaling-stroke;
+      }
+      .node-dot.pickable {
+        cursor: crosshair;
+        pointer-events: all;
+        stroke: var(--ce-accent);
+      }
+      .object {
+        cursor: pointer;
+        fill: var(--ce-surface);
+        stroke: var(--ce-warning);
+        stroke-width: 2;
+        vector-effect: non-scaling-stroke;
+      }
+      .object.selected {
+        fill: var(--ce-warning);
       }
       .grid {
         stroke: var(--ce-grid);
@@ -360,8 +515,9 @@ export class CeCanvas extends observer(LitElement) {
         @pointercancel=${this.#up}
       >
         ${this.#grid(cx - halfW, cx + halfW, cy - halfH, cy + halfH)}
-        ${this.#faces()} ${this.#models()} ${this.#faceHandles()}
-        ${this.#gizmo()} ${this.#draft()} ${this.#marker()}
+        ${this.#faces()} ${this.#models()} ${this.#paths()}
+        ${this.#faceHandles()} ${this.#pathHandles()} ${this.#gizmo()}
+        ${this.#draft()} ${this.#marker()}
       </svg>
       <ce-canvas-toolbar></ce-canvas-toolbar>
       <span class="hint">${this.#hint()}</span>
@@ -376,6 +532,19 @@ export class CeCanvas extends observer(LitElement) {
     }
     if (store.tool === "rect") {
       return "Drag to draw a rectangle. Hold Alt to skip snapping. Esc cancels.";
+    }
+    if (store.tool === "lane") {
+      return "Click to add nodes. Double-click, click the last node, or press Enter to finish. Hold Alt to skip snapping. Esc cancels.";
+    }
+    if (store.tool === "edges") {
+      return store.selectedEdgeList
+        ? "Click to add nodes to the selected edge list. Click a node to join it. Double-click or press Enter to finish. Esc cancels."
+        : "Click to add nodes of a new edge list. Double-click or press Enter to finish. Esc cancels.";
+    }
+    if (store.runwayPick) {
+      return store.runwayPick.field === "node"
+        ? "Click a node of an edge list to set the runway node. Esc cancels."
+        : "Click edges to add or remove them from the runway. Esc finishes.";
     }
     return "Drag an item to move it. Hold Alt to skip snapping.";
   }
@@ -457,9 +626,49 @@ export class CeCanvas extends observer(LitElement) {
   }
 
   /** Everything a ground face point can snap to, minus the face being moved. */
-  #snapSet(skip: { sub: number; face: number } | null): SnapSet {
+  #snapSet(
+    skip: { sub: number; face: number } | null,
+    skipNode?: (id: string) => boolean,
+  ): SnapSet {
     const targets: Vec2[] = [[0, 0]];
     const segments: Segment[] = [];
+    // Lane list and edge list nodes, minus the node being dragged and the
+    // edges that end at it.
+    store.doc?.subconstructions.forEach((layer, si) =>
+      (layer.laneLists ?? []).forEach((lane, li) => {
+        if (!store.isPathVisible(lane.nodes.map((n) => n.pos[2]), si)) return;
+        const o = laneOffset(lane.transf);
+        const at = lane.nodes.map((n): Vec2 => [
+          n.pos[0] + o[0],
+          n.pos[1] + o[1],
+        ]);
+        const skipped = at.map((_, ni) => skipNode?.(`lane:${si}:${li}:${ni}`));
+        at.forEach((p, ni) => {
+          if (!skipped[ni]) targets.push(p);
+          if (ni > 0 && !skipped[ni] && !skipped[ni - 1]) {
+            segments.push([at[ni - 1], p]);
+          }
+        });
+      })
+    );
+    store.doc?.edgeLists?.forEach((list, li) => {
+      if (!store.isPathVisible(list.nodes.map((n) => n.pos[2]))) return;
+      const skipped = list.nodes.map((_, ni) =>
+        skipNode?.(`edges:${li}:${ni}`)
+      );
+      list.nodes.forEach((n, ni) => {
+        if (!skipped[ni]) targets.push([n.pos[0], n.pos[1]]);
+      });
+      for (const [a, b] of list.edges) {
+        if (skipped[a] || skipped[b] || !list.nodes[a] || !list.nodes[b]) {
+          continue;
+        }
+        segments.push([
+          [list.nodes[a].pos[0], list.nodes[a].pos[1]],
+          [list.nodes[b].pos[0], list.nodes[b].pos[1]],
+        ]);
+      }
+    });
     store.doc?.subconstructions.forEach((layer, si) => {
       layer.models.forEach((m) => {
         if (!store.isVisible(si, m.transf[14])) return;
@@ -604,8 +813,237 @@ export class CeCanvas extends observer(LitElement) {
     );
   }
 
+  /** Lane lists, edge lists, runway highlights, and edge object markers. */
+  #paths() {
+    const doc = store.doc;
+    if (!doc) return null;
+    const ps = store.pathSelection;
+    const pick = store.runwayPick;
+    const pickRunway = pick
+      ? doc.subconstructions[pick.sub]?.runways?.[pick.runway]
+      : undefined;
+    const lists = (doc.edgeLists ?? []).map((list, li) => ({ list, li }))
+      .filter(({ list }) =>
+        store.isPathVisible(list.nodes.map((n) => n.pos[2]))
+      );
+    const runways = doc.subconstructions.flatMap((layer, si) =>
+      (layer.runways ?? []).map((runway, ri) => ({ si, ri, runway }))
+    ).filter(({ si }) => store.isFaceVisible(si));
+    const xy = (v: Vec3) => `${v[0]},${-v[1]}`;
+    const highlights = runways.flatMap(({ si, ri, runway }) => {
+      const list = findEdgeList(doc, runway.edgeList);
+      if (!list || !lists.some((l) => l.list === list)) return [];
+      const selected = ps?.kind === "runway" && ps.sub === si &&
+        ps.runway === ri;
+      const cls = `runway-hl ${runway.kind.toLowerCase()} ${
+        selected ? "selected" : ""
+      }`;
+      const node = runway.node === undefined
+        ? undefined
+        : list.nodes[runway.node];
+      return [
+        ...runway.edges.flatMap((e) => {
+          const edge = list.edges[e];
+          const a = edge && list.nodes[edge[0]];
+          const b = edge && list.nodes[edge[1]];
+          return a && b
+            ? [svg`
+              <line class=${cls} x1=${a.pos[0]} y1=${-a.pos[1]}
+                x2=${b.pos[0]} y2=${-b.pos[1]} />
+            `]
+            : [];
+        }),
+        ...(node
+          ? [svg`
+            <circle class="runway-node" cx=${node.pos[0]}
+              cy=${-node.pos[1]} r=${(HANDLE_PX + 4) / this.scale} />
+          `]
+          : []),
+      ];
+    });
+    const edgeLists = lists.map(({ list, li }) => {
+      const listed = ps?.kind === "edgeList" && ps.list === li;
+      return svg`
+        <g>
+          ${list.edges.map(([a, b], ei) => {
+            const na = list.nodes[a];
+            const nb = list.nodes[b];
+            if (!na || !nb) return null;
+            const picked = (listed && ps.edge === ei) ||
+              (pickRunway?.edgeList === list.id &&
+                pickRunway.edges.includes(ei));
+            const cls = `edge ${list.type.toLowerCase()} ${
+              listed ? "listed" : ""
+            } ${picked ? "picked" : ""}`;
+            return svg`
+              <line class=${cls} x1=${na.pos[0]} y1=${-na.pos[1]}
+                x2=${nb.pos[0]} y2=${-nb.pos[1]} />
+              <line class="path-hit" x1=${na.pos[0]} y1=${-na.pos[1]}
+                x2=${nb.pos[0]} y2=${-nb.pos[1]}
+                @pointerdown=${(e: PointerEvent) =>
+                  this.#downEdge(e, li, ei)} />
+            `;
+          })}
+          ${listed ? null : list.nodes.map((n, ni) =>
+            svg`
+              <circle class=${pick?.field === "node"
+                ? "node-dot pickable"
+                : "node-dot"} cx=${n.pos[0]} cy=${-n.pos[1]}
+                r=${(HANDLE_PX - 2) / this.scale}
+                @pointerdown=${(e: PointerEvent) =>
+                  this.#downPathNode(e, {
+                    type: "edges",
+                    list: li,
+                    node: ni,
+                  })} />
+            `
+          )}
+        </g>
+      `;
+    });
+    const lanes = doc.subconstructions.flatMap((layer, si) =>
+      (layer.laneLists ?? []).map((lane, li) => ({ si, li, lane }))
+    ).filter(({ si, lane }) =>
+      store.isPathVisible(lane.nodes.map((n) => n.pos[2]), si)
+    ).map(({ si, li, lane }) => {
+      const o = laneOffset(lane.transf);
+      const at = lane.nodes.map((
+        n,
+      ): Vec2 => [n.pos[0] + o[0], n.pos[1] + o[1]]);
+      const group = modeGroup(lane.transportModes);
+      const line = at.map((p) => `${p[0]},${-p[1]}`).join(" ");
+      const selected = ps?.kind === "lane" && ps.sub === si && ps.lane === li;
+      return svg`
+        <g class=${selected ? "selected" : ""}>
+          <polyline class="lane ${group}" points=${line} />
+          ${at.slice(1).map((p, i) => {
+            const arrow = arrowPoints(at[i], p, 5 / this.scale);
+            return arrow
+              ? svg`<polygon class="lane-arrow ${group}" points=${arrow} />`
+              : null;
+          })}
+          <polyline class="path-hit" points=${line}
+            @pointerdown=${(e: PointerEvent) => this.#downLane(e, si, li)} />
+        </g>
+      `;
+    });
+    const objects = (doc.edgeObjects ?? []).map((object, oi) => {
+      const list = findEdgeList(doc, object.edgeList);
+      const edge = list?.edges[object.edge];
+      const a = edge && list?.nodes[edge[0]];
+      const b = edge && list?.nodes[edge[1]];
+      if (!list || !a || !b || !lists.some((l) => l.list === list)) return null;
+      const on = pointOnEdge(a, b, object.param);
+      const n = leftNormal([a.pos[0], a.pos[1]], [b.pos[0], b.pos[1]]);
+      const side = object.left ? 1 : -1;
+      const cx = on[0] + n[0] * side * OBJECT_OFFSET_M;
+      const cy = on[1] + n[1] * side * OBJECT_OFFSET_M;
+      const r = 5 / this.scale;
+      const selected = ps?.kind === "edgeObject" && ps.index === oi;
+      return svg`
+        <polygon class="object ${selected ? "selected" : ""}"
+          points=${`${cx},${-cy - r} ${cx + r},${-cy} ${cx},${-cy + r} ${
+            cx - r
+          },${-cy}`}
+          @pointerdown=${(e: PointerEvent) => this.#downObject(e, oi)} />
+      `;
+    });
+    return svg`${highlights} ${edgeLists} ${lanes} ${objects}`;
+  }
+
+  /** Node handles and the tangent handle of the selected lane list or edge list. */
+  #pathHandles() {
+    const doc = store.doc;
+    const ps = store.pathSelection;
+    if (!doc || !ps || store.tool !== "select") return null;
+    const r = HANDLE_PX / this.scale;
+    let nodes: { at: Vec2; ref: PathNodeRef; picked: boolean }[] = [];
+    let tangent: { at: Vec2; dir: Vec2 | null } | null = null;
+    if (ps.kind === "lane") {
+      const lane = store.selectedLane;
+      if (
+        !lane || !store.isPathVisible(lane.nodes.map((n) => n.pos[2]), ps.sub)
+      ) {
+        return null;
+      }
+      const o = laneOffset(lane.transf);
+      nodes = lane.nodes.map((n, node) => ({
+        at: [n.pos[0] + o[0], n.pos[1] + o[1]],
+        ref: { type: "lane", sub: ps.sub, lane: ps.lane, node },
+        picked: ps.node === node,
+      }));
+      if (ps.node !== null) {
+        tangent = {
+          at: nodes[ps.node].at,
+          dir: laneTangentDir(lane, ps.node),
+        };
+      }
+    } else if (ps.kind === "edgeList") {
+      const list = store.selectedEdgeList;
+      if (!list || !store.isPathVisible(list.nodes.map((n) => n.pos[2]))) {
+        return null;
+      }
+      nodes = list.nodes.map((n, node) => ({
+        at: [n.pos[0], n.pos[1]],
+        ref: { type: "edges", list: ps.list, node },
+        picked: ps.node === node,
+      }));
+      if (ps.node !== null) {
+        tangent = { at: nodes[ps.node].at, dir: edgeTangentDir(list, ps.node) };
+      }
+    } else {
+      return null;
+    }
+    const reach = TANGENT_HANDLE_PX / this.scale;
+    const tip: Vec2 | null = tangent?.dir
+      ? [
+        tangent.at[0] + tangent.dir[0] * reach,
+        tangent.at[1] + tangent.dir[1] * reach,
+      ]
+      : null;
+    return svg`
+      ${tangent && tip
+        ? svg`
+          <line class="stem" x1=${tangent.at[0]} y1=${-tangent.at[1]}
+            x2=${tip[0]} y2=${-tip[1]} />
+          <circle class="handle rotate" cx=${tip[0]} cy=${-tip[1]} r=${r}
+            @pointerdown=${(e: PointerEvent) =>
+              this.#downTangent(e, tangent.at)} />
+        `
+        : null}
+      ${nodes.map(({ at, ref, picked }) =>
+        svg`
+          <circle class=${picked ? "vertex picked" : "vertex"} cx=${at[0]}
+            cy=${-at[1]} r=${r}
+            @pointerdown=${(e: PointerEvent) => this.#downPathNode(e, ref)} />
+        `
+      )}
+    `;
+  }
+
+  /** The lane list or edge chain being clicked out. */
+  #pathDraft() {
+    const draft = store.pathDraft;
+    const r = (HANDLE_PX - 2) / this.scale;
+    const pts: Vec2[] = draft.map((d): Vec2 => [d.pos[0], d.pos[1]]);
+    const shown = this.cursor ? [...pts, this.cursor] : pts;
+    const line = shown.map((p) => `${p[0]},${-p[1]}`).join(" ");
+    return svg`
+      <polyline class="draft" fill="none" points=${line} />
+      ${pts.map((p) =>
+        svg`<circle class="draft-dot" cx=${p[0]} cy=${-p[1]} r=${r} />`
+      )}
+    `;
+  }
+
   /** The polygon being clicked out, or the rectangle being dragged. */
   #draft() {
+    if (
+      (store.tool === "lane" || store.tool === "edges") &&
+      store.pathDraft.length > 0
+    ) {
+      return this.#pathDraft();
+    }
     const r = (HANDLE_PX - 2) / this.scale;
     if (store.tool === "rect" && this.#drag?.kind === "rect" && this.rectEnd) {
       const a = this.#drag.anchor;
@@ -709,6 +1147,10 @@ export class CeCanvas extends observer(LitElement) {
 
   /** A click or drag with the polygon or rectangle tool. */
   #downTool(event: PointerEvent) {
+    if (store.tool === "lane" || store.tool === "edges") {
+      this.#downPath(event);
+      return;
+    }
     const set = this.#snapSet(null);
     const raw = this.#pointerWorld(event);
     if (store.tool === "rect") {
@@ -734,6 +1176,125 @@ export class CeCanvas extends observer(LitElement) {
     // An edge that crosses the polygon so far would make a bow-tie.
     if (prev && edgeCrossesPolyline(draft, prev, point)) return;
     store.addDraftPoint(point);
+  }
+
+  /** A click with the lane list or edge list tool. */
+  #downPath(event: PointerEvent) {
+    const raw = this.#pointerWorld(event);
+    const draft = store.pathDraft;
+    const last = draft.at(-1);
+    const near = (p: Vec2 | Vec3) =>
+      Math.hypot(raw[0] - p[0], raw[1] - p[1]) * this.scale <= SNAP_PX * 1.5;
+    // The first click of a double-click already added its point.
+    if (last && near(last.pos)) {
+      if (draft.length >= 2) {
+        store.finishPathDraft();
+        this.cursor = null;
+      }
+      return;
+    }
+    const target = store.tool === "edges" ? store.selectedEdgeList : null;
+    const joined = target?.nodes.findIndex((n) => near(n.pos)) ?? -1;
+    if (target && joined >= 0) {
+      store.addPathDraftPoint({
+        pos: [...target.nodes[joined].pos],
+        join: joined,
+      });
+      return;
+    }
+    const point = this.#snapPoint(
+      raw,
+      this.#snapSet(null),
+      event,
+      last ? [last.pos[0], last.pos[1]] : undefined,
+    );
+    store.addPathDraftPoint({
+      pos: [point[0], point[1], store.nextPathZ],
+      join: null,
+    });
+  }
+
+  #downEdge(event: PointerEvent, list: number, edge: number) {
+    // With a drawing tool armed the click goes on to the surface.
+    if (store.tool !== "select") return;
+    event.stopPropagation();
+    const target = store.doc?.edgeLists?.[list];
+    if (!target) return;
+    if (store.runwayPick?.field === "edges") {
+      store.completeRunwayPick(target.id, { edge });
+      return;
+    }
+    store.selectPath({ kind: "edgeList", list, node: null, edge });
+  }
+
+  #downLane(event: PointerEvent, sub: number, lane: number) {
+    if (store.tool !== "select") return;
+    event.stopPropagation();
+    store.selectPath({ kind: "lane", sub, lane, node: null });
+  }
+
+  #downObject(event: PointerEvent, index: number) {
+    if (store.tool !== "select") return;
+    event.stopPropagation();
+    store.selectPath({ kind: "edgeObject", index });
+  }
+
+  /** A node of a lane list or edge list: picks it for a runway or drags it. */
+  #downPathNode(event: PointerEvent, ref: PathNodeRef) {
+    if (store.tool !== "select") return;
+    event.stopPropagation();
+    if (ref.type === "edges") {
+      const id = store.doc?.edgeLists?.[ref.list]?.id;
+      if (id && store.runwayPick?.field === "node") {
+        store.completeRunwayPick(id, { node: ref.node });
+        return;
+      }
+      if (store.runwayPick) return;
+    }
+    const doc = store.doc;
+    const lane = ref.type === "lane"
+      ? doc?.subconstructions[ref.sub]?.laneLists?.[ref.lane]
+      : undefined;
+    const node = ref.type === "lane"
+      ? lane?.nodes[ref.node]
+      : doc?.edgeLists?.[ref.list]?.nodes[ref.node];
+    if (!node) return;
+    this.#capture(event);
+    if (ref.type === "lane") {
+      store.selectPath({
+        kind: "lane",
+        sub: ref.sub,
+        lane: ref.lane,
+        node: ref.node,
+      });
+    } else {
+      store.selectPath({
+        kind: "edgeList",
+        list: ref.list,
+        node: ref.node,
+        edge: null,
+      });
+    }
+    const offset = laneOffset(lane?.transf);
+    const key = ref.type === "lane"
+      ? `lane:${ref.sub}:${ref.lane}:${ref.node}`
+      : `edges:${ref.list}:${ref.node}`;
+    store.beginGesture();
+    this.#drag = {
+      kind: "pnode",
+      ref,
+      pointer: this.#pointerWorld(event),
+      start: [node.pos[0] + offset[0], node.pos[1] + offset[1]],
+      offset,
+      set: this.#snapSet(null, (id) => id === key),
+    };
+  }
+
+  #downTangent(event: PointerEvent, origin: Vec2) {
+    event.stopPropagation();
+    this.#capture(event);
+    store.beginGesture();
+    this.#drag = { kind: "tangent", origin };
   }
 
   #downFace(event: PointerEvent, sub: number, face: number) {
@@ -877,6 +1438,17 @@ export class CeCanvas extends observer(LitElement) {
           event,
           store.faceDraft.at(-1),
         );
+      } else if (
+        (store.tool === "lane" || store.tool === "edges") &&
+        store.pathDraft.length > 0
+      ) {
+        const last = store.pathDraft.at(-1)!;
+        this.cursor = this.#snapPoint(
+          this.#pointerWorld(event),
+          this.#snapSet(null),
+          event,
+          [last.pos[0], last.pos[1]],
+        );
       }
       return;
     }
@@ -891,6 +1463,35 @@ export class CeCanvas extends observer(LitElement) {
     const p = this.#pointerWorld(event);
     if (drag.kind === "rect") {
       this.rectEnd = this.#snapPoint(p, drag.set, event);
+      return;
+    }
+    if (drag.kind === "tangent") {
+      const dx = p[0] - drag.origin[0];
+      const dy = p[1] - drag.origin[1];
+      if (Math.hypot(dx, dy) < 1e-6) return;
+      const angle = snapAngle(Math.atan2(dy, dx), settings.angle);
+      store.setPathTangent([Math.cos(angle), Math.sin(angle), 0]);
+      return;
+    }
+    if (drag.kind === "pnode") {
+      const moved: Vec2 = [
+        drag.start[0] + p[0] - drag.pointer[0],
+        drag.start[1] + p[1] - drag.pointer[1],
+      ];
+      const snapped = snapMove(
+        [moved],
+        drag.set.targets,
+        drag.set.segments,
+        settings,
+        SNAP_PX / this.scale,
+      );
+      this.snapMark = snapped.target ?? null;
+      const x = moved[0] + snapped.delta[0] - drag.offset[0];
+      const y = moved[1] + snapped.delta[1] - drag.offset[1];
+      const ref = drag.ref;
+      if (ref.type === "lane") {
+        store.moveLaneNode(ref.sub, ref.lane, ref.node, x, y);
+      } else store.moveEdgeListNode(ref.list, ref.node, x, y);
       return;
     }
     if (drag.kind === "face") {
